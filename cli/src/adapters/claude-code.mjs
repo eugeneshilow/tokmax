@@ -40,6 +40,12 @@ async function claudeProjectRoots() {
 export async function scanClaudeCode() {
   const records = [];
   let sessionCount = 0;
+  // Dedup assistant turns by message.id: Claude Code resume/branch/continue
+  // replays prior turns (with their original usage) into new session files, so
+  // summing every file's assistant lines double-counts. message.id is unique per
+  // API response, so one id == one billed turn no matter how many files replay it.
+  const seenIds = new Set();
+  let duplicates = 0;
 
   for (const root of await claudeProjectRoots()) {
     for await (const file of walkJsonl(root)) {
@@ -68,6 +74,15 @@ export async function scanClaudeCode() {
         const date = isoDay(d.timestamp);
         if (!date) continue;
 
+        const id = msg.id;
+        if (id) {
+          if (seenIds.has(id)) {
+            duplicates++;
+            continue; // already counted this billed turn (replayed in another file)
+          }
+          seenIds.add(id);
+        }
+
         records.push({
           tool: 'claude-code',
           model,
@@ -82,5 +97,5 @@ export async function scanClaudeCode() {
     }
   }
 
-  return { tool: 'claude-code', sessionCount, records };
+  return { tool: 'claude-code', sessionCount, records, duplicates };
 }
