@@ -4,7 +4,7 @@
 локальных AI-coding агентов (Codex, Claude Code). Изолированный продукт линейки
 **vibecoding.ru**.
 
-- `cli/` — open-source CLI `tokenmax-ru` (`npx tokenmax-ru <ник>`):
+- `cli/` — open-source CLI `tokmax` (`npx tokmax <ник>`):
   читает локальные JSONL-логи, считает агрегаты, публикует. Наружу — только числа,
   никогда не сырые логи или ключи.
 - `web/` — Next + Convex: публичные дашборды `tokenmax.vibecoding.ru/<ник>`,
