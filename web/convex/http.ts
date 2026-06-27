@@ -193,8 +193,8 @@ http.route({
         ok: true,
         created: result.created,
         nick: result.nick,
-        // Публичный дашборд: root-level [nick] на сабдомене tokenmax.
-        url: `https://tokenmax.vibecoding.ru/${result.nick}`,
+        // Короткая шер-ссылка (редиректит на tokenmax.vibecoding.ru/<nick>).
+        url: `https://tokenmax.ru/${result.nick}`,
         suspicious: result.suspicious,
         costUsd: result.costUsd,
         totalTokens: result.totalTokens,

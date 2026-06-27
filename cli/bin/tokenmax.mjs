@@ -2,7 +2,7 @@
 //
 // tokenmax — scan local Codex + Claude Code logs, aggregate per-model
 // token usage, preview the API-equivalent $, and publish the aggregate to the
-// tokenmax leaderboard (tokenmax.vibecoding.ru).
+// tokenmax leaderboard (tokenmax.ru).
 //
 // Happy path is one command:
 //   npx tokenmax-ru <nick>
@@ -81,7 +81,7 @@ const HELP = `tokenmax <nick> [options]
 
   Сканирует локальные логи Codex и Claude Code, считает токены по моделям,
   показывает API-equivalent в долларах и публикует агрегат на лидерборд
-  tokenmax.vibecoding.ru. Наружу уходят только числа — не логи и не ключи.
+  tokenmax.ru. Наружу уходят только числа — не логи и не ключи.
 
 Options:
   --since YYYY-MM-DD   считать только с этого дня (по умолчанию — вся история)

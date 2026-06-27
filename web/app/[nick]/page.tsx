@@ -65,7 +65,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
 
   if (!profile) notFound()
 
-  const shareUrl = `tokenmax.vibecoding.ru/${profile.nick}`
+  const shareUrl = `tokenmax.ru/${profile.nick}`
   const peakDay =
     profile.daily.length > 0
       ? profile.daily.reduce((max, day) => (day.totalTokens > max.totalTokens ? day : max))

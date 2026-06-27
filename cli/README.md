@@ -2,7 +2,7 @@
 
 Считает, сколько токенов ты сжёг в **Codex** и **Claude Code** на этой машине,
 переводит это в **API-equivalent** доллары и публикует агрегат на публичный
-лидерборд [tokenmax.vibecoding.ru](https://tokenmax.vibecoding.ru).
+лидерборд [tokenmax.ru](https://tokenmax.ru).
 
 Одной командой:
 
@@ -10,7 +10,7 @@
 npx tokenmax-ru <nick>
 ```
 
-После публикации твой профиль виден на `https://tokenmax.vibecoding.ru/<nick>`.
+После публикации твой профиль виден на `https://tokenmax.ru/<nick>`.
 
 ## Что именно уходит наружу (и что — нет)
 
