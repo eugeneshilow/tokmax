@@ -253,7 +253,10 @@ export function suggestAlternativeNick(nick: string, taken: Set<string>): string
 // suspicious (прячем из leaderboard). Soft cap ДОЛЖЕН быть ниже hard cap, иначе
 // серая зона пуста; исходный 1_000_000 был выше нового hard cap (250k) и сделал
 // бы зону suspicious недостижимой, поэтому опущен.
-export const TMX_VALUE_CAP_USD = 50_000
+// Lowered 50k→15k: visible (non-suspicious) entries are bounded to a believable
+// heavy-user ceiling, so self-reported poison can't show absurd numbers on the
+// public board; above this → suspicious → hidden pending owner review.
+export const TMX_VALUE_CAP_USD = 15_000
 
 // HARDENING #6: жёсткий потолок — выше него публикация ОТКЛОНЯЕТСЯ (reason
 // value_too_high), а не просто метится. Ограничивает абсурдные/абьюзные суммы.
@@ -269,6 +272,11 @@ export const TMX_NICK_MIN_INTERVAL_MS = 30 * 1000
 
 export const TMX_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
 export const TMX_RATE_LIMIT_MAX = 8
+
+// HARDENING #3b: per-IP daily sub-cap. With a trustworthy client IP (rightmost
+// XFF), one source can't burn the global daily cap or mass-create poison
+// entries. Generous vs any legit use (publish once / a few re-runs per day).
+export const TMX_IP_DAILY_CAP = 12
 
 // ---------------------------------------------------------------------------
 // Агрегация моделей → источники + тоталы (серверный авторитетный расчёт $)

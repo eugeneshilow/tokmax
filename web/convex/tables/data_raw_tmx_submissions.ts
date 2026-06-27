@@ -1,6 +1,7 @@
 import { internalMutation } from '../_generated/server'
 import {
   GLOBAL_DAILY_CAP,
+  TMX_IP_DAILY_CAP,
   TMX_NICK_MIN_INTERVAL_MS,
   TMX_RATE_LIMIT_MAX,
   TMX_RATE_LIMIT_WINDOW_MS,
@@ -107,6 +108,24 @@ export const publish = internalMutation({
         ok: false as const,
         reason: 'rate_limited' as const,
         message: 'Слишком много публикаций подряд. Попробуй чуть позже.',
+      }
+    }
+
+    // HARDENING #3b: per-IP daily sub-cap (bounded read via compound index).
+    // With a trustworthy client IP (rightmost XFF), one source can't burn the
+    // global daily cap or mass-create poison entries.
+    const dayStartMs = Date.parse(`${day}T00:00:00.000Z`)
+    const ipToday = await ctx.db
+      .query('data_raw_tmx_submissions')
+      .withIndex('by_ip_hash_inserted', (q) =>
+        q.eq('ipHash', args.ipHash).gte('insertedAt', dayStartMs)
+      )
+      .take(TMX_IP_DAILY_CAP + 1)
+    if (ipToday.length >= TMX_IP_DAILY_CAP) {
+      return {
+        ok: false as const,
+        reason: 'rate_limited' as const,
+        message: 'Дневной лимит публикаций с этого адреса исчерпан.',
       }
     }
 

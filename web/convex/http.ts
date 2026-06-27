@@ -134,7 +134,14 @@ http.route({
     }
 
     const forwarded = request.headers.get('x-forwarded-for') ?? ''
-    const ip = forwarded.split(',')[0]?.trim() || 'unknown'
+    // HARDENING #3 fix: take the RIGHTMOST x-forwarded-for entry — the value the
+    // platform edge appended (the real connecting IP). The leftmost is fully
+    // client-controlled (spoofable), which defeated the salted per-IP rate-limit.
+    const xffParts = forwarded
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const ip = xffParts.length ? xffParts[xffParts.length - 1] : 'unknown'
     // HARDENING #8: НЕ публичная константа-соль. Читаем TMX_IP_SALT; если не
     // задан — fallback на per-deployment значение (URL развёртывания уникален
     // на деплой) + warning в логи, чтобы оператор выставил TMX_IP_SALT. Не
