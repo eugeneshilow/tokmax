@@ -2,7 +2,7 @@
 //
 // tokmax — scan local Codex + Claude Code logs, aggregate per-model token
 // usage, preview the API-equivalent $, and publish the aggregate to the
-// tokenmax leaderboard (tokenmax.ru).
+// tokenmax leaderboard (tokmax.ru).
 //
 // Two ways to run:
 //   npx tokmax            → short interactive onboarding (2 steps, progress bar)

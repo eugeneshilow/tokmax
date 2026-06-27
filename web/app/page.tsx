@@ -85,7 +85,7 @@ export default async function LandingPage() {
             </h2>
             <p className="mt-4 max-w-md text-[15px] font-semibold leading-7 text-[#D2D2D7]">
               Запусти команду в терминале — она посчитает API-equivalent и опубликует твою страницу
-              на <span className="text-white">tokenmax.ru/&lt;ник&gt;</span>.
+              на <span className="text-white">tokmax.ru/&lt;ник&gt;</span>.
             </p>
             <div className="mt-6">
               <PromptCopyBox prompt={SELF_SERVE_ONELINER} />
