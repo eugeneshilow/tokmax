@@ -394,6 +394,7 @@ async function main() {
     machineLabel: opts.machine,
     models: agg.models,
     daily: agg.daily,
+    ...(opts.subscriptionUsd ? { subscriptionUsd: opts.subscriptionUsd } : {}),
   };
 
   if (opts.dryRun) {

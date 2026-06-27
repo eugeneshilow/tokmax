@@ -25,6 +25,7 @@ const vTmxProfilePublic = v.object({
   submissionCount: v.number(),
   cliVersion: v.string(),
   suspicious: v.boolean(),
+  subscriptionUsd: v.optional(v.number()),
   firstSeenAt: v.number(),
   updatedAt: v.number(),
 })
@@ -180,6 +181,7 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
     submissionCount: rows.length,
     cliVersion: newestRow.cliVersion,
     suspicious,
+    subscriptionUsd: newestRow.subscriptionUsd,
     updatedAt: now,
   }
 
@@ -231,6 +233,7 @@ export const getByNick = query({
       submissionCount: profile.submissionCount,
       cliVersion: profile.cliVersion,
       suspicious: profile.suspicious,
+      subscriptionUsd: profile.subscriptionUsd,
       firstSeenAt: profile.firstSeenAt,
       updatedAt: profile.updatedAt,
     }

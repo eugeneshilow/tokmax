@@ -72,6 +72,22 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
       : null
   const maxDailyTokens = peakDay ? peakDay.totalTokens : 0
 
+  // Экономика подписки: API-equivalent ÷ (подписка/мес × месяцы периода).
+  const econ =
+    profile.subscriptionUsd && profile.subscriptionUsd > 0
+      ? (() => {
+          const days = Math.max(
+            1,
+            Math.round((Date.parse(profile.lastDay) - Date.parse(profile.firstDay)) / 86400000) + 1
+          )
+          const months = Math.max(1, days / 30)
+          const subTotal = profile.subscriptionUsd * months
+          const ratio = subTotal > 0 ? profile.costUsd / subTotal : 0
+          const profit = profile.costUsd - subTotal
+          return { months, subTotal, ratio, profit }
+        })()
+      : null
+
   const statCards = [
     {
       label: 'API-equivalent',
@@ -129,6 +145,25 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 <ShieldAlert className="h-4 w-4" />
                 число не верифицировано
               </p>
+            ) : null}
+
+            {econ ? (
+              <div className="mt-7 inline-flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-[#18D86B]/40 bg-[#18D86B]/10 px-5 py-4">
+                <div>
+                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9EFFBF]">
+                    подписка ÷ api
+                  </p>
+                  <p className="text-[44px] font-black leading-none text-[#18D86B]">
+                    {econ.ratio.toFixed(1)}×
+                  </p>
+                </div>
+                <p className="max-w-md text-[14px] font-semibold leading-6 text-[#B9FFD5]">
+                  Подписка {formatUsdPrecise(profile.subscriptionUsd)}/мес — за период это ≈{' '}
+                  {formatUsdPrecise(econ.subTotal)}. API-equivalent {formatUsdPrecise(profile.costUsd)}{' '}
+                  → отбил подписку в {econ.ratio.toFixed(1)}×
+                  {econ.profit >= 0 ? `, сэкономил +${formatUsdPrecise(econ.profit)}` : ''}.
+                </p>
+              </div>
             ) : null}
 
             <div className="mt-8 flex flex-wrap items-center gap-3 text-[14px] font-bold">

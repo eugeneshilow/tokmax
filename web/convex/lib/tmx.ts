@@ -76,6 +76,8 @@ export const vTmxPublishArgs = {
   ipHash: v.string(),
   providedSecretHash: v.union(v.string(), v.null()),
   candidateSecretHash: v.string(),
+  // Опциональная подписка $/мес (из онбординга) для economics-блока профиля.
+  subscriptionUsd: v.optional(v.number()),
 }
 
 export const vTmxPublishResult = v.union(

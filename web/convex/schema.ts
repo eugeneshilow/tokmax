@@ -25,6 +25,7 @@ export default defineSchema({
     totals: v.object(tmxTotalsFields),
     suspicious: v.boolean(),
     hasUnknownModels: v.boolean(),
+    subscriptionUsd: v.optional(v.number()),
     insertedAt: v.number(),
   })
     // HARDENING #4: [nick, insertedAt] — ограниченное чтение проектором
@@ -49,6 +50,7 @@ export default defineSchema({
     submissionCount: v.number(),
     cliVersion: v.string(),
     suspicious: v.boolean(),
+    subscriptionUsd: v.optional(v.number()),
     firstSeenAt: v.number(),
     updatedAt: v.number(),
   })

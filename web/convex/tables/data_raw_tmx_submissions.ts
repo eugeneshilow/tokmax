@@ -188,6 +188,7 @@ export const publish = internalMutation({
       totals,
       suspicious,
       hasUnknownModels,
+      subscriptionUsd: args.subscriptionUsd,
       insertedAt: now,
     })
 

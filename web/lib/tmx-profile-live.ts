@@ -42,6 +42,7 @@ export type TmxProfile = {
   submissionCount: number
   cliVersion: string
   suspicious: boolean
+  subscriptionUsd?: number
   firstSeenAt: number
   updatedAt: number
 }

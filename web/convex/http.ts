@@ -32,6 +32,7 @@ type TmxPublishArgs = {
   ipHash: string
   providedSecretHash: string | null
   candidateSecretHash: string
+  subscriptionUsd?: number
 }
 
 type TmxPublishResult =
@@ -178,6 +179,12 @@ http.route({
       ipHash,
       providedSecretHash,
       candidateSecretHash,
+      subscriptionUsd:
+        typeof body.subscriptionUsd === 'number' &&
+        Number.isFinite(body.subscriptionUsd) &&
+        body.subscriptionUsd > 0
+          ? Math.min(Math.round(body.subscriptionUsd * 100) / 100, 100_000)
+          : undefined,
     })
 
     if (!result.ok) {
