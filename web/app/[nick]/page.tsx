@@ -9,6 +9,7 @@ import { ArrowUpRight, Flame, Gauge, ReceiptText, ShieldAlert, Terminal, Zap } f
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -64,6 +65,11 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
   const profile = await loadTmxProfile(nick)
 
   if (!profile) notFound()
+
+  // Locale-aware фаннел: русскоязычный браузер → CTA на vibecoding.ru (детект по
+  // Accept-Language, НЕ по гео — VPN не ломает: язык браузера не меняется).
+  const acceptLang = (await headers()).get('accept-language')?.toLowerCase() ?? ''
+  const isRu = acceptLang.startsWith('ru')
 
   const shareUrl = `tokmax.vibecoding.tech/${profile.nick}`
   const peakDay =
@@ -151,7 +157,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               <div className="mt-7 inline-flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-[#18D86B]/40 bg-[#18D86B]/10 px-5 py-4">
                 <div>
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9EFFBF]">
-                    подписка ÷ api
+                    api ÷ подписка
                   </p>
                   <p className="text-[44px] font-black leading-none text-[#18D86B]">
                     {econ.ratio.toFixed(1)}×
@@ -167,6 +173,17 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             ) : null}
 
             <div className="mt-8 flex flex-wrap items-center gap-3 text-[14px] font-bold">
+              {isRu ? (
+                <Link
+                  href="https://vibecoding.ru"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#FF7A1A] px-4 font-black text-[#070707] transition-colors hover:bg-[#ff8c3a]"
+                >
+                  Научись так же → vibecoding.ru
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              ) : null}
               <Link
                 href="https://t.me/shilovtech"
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
@@ -339,6 +356,17 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
+                {isRu ? (
+                  <Link
+                    href="https://vibecoding.ru"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#FF7A1A] px-4 font-black text-[#070707] transition-colors hover:bg-[#ff8c3a]"
+                  >
+                    Научись вайбкодить → vibecoding.ru
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                ) : null}
                 <Link
                   href="https://t.me/shilovtech"
                   className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
