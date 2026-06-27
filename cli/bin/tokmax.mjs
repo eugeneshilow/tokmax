@@ -2,7 +2,7 @@
 //
 // tokmax — scan local Codex + Claude Code logs, aggregate per-model token
 // usage, preview the API-equivalent $, and publish the aggregate to the
-// tokenmax leaderboard (tokmax.ru).
+// tokenmax leaderboard (tokmax.vibecoding.tech).
 //
 // Two ways to run:
 //   npx tokmax            → short interactive onboarding (2 steps, progress bar)
@@ -25,7 +25,7 @@ import { publish } from '../src/publish.mjs';
 import { loadSecret, saveSecret } from '../src/secrets.mjs';
 
 const DEFAULT_API = 'https://chatty-boar-479.convex.site';
-const PAGE_BASE = 'https://tokenmax.vibecoding.ru'; // canonical served page (availability check)
+const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function parseArgs(argv) {

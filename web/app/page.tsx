@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     title: 'tokenmax — сколько ты нажёг по API-расценкам',
     description:
       'Публичный счётчик API-equivalent расхода Codex и Claude Code. Собери свой одной командой.',
-    url: 'https://tokenmax.vibecoding.ru/',
+    url: 'https://tokmax.vibecoding.tech/',
     type: 'website',
   },
 }
@@ -85,7 +85,7 @@ export default async function LandingPage() {
             </h2>
             <p className="mt-4 max-w-md text-[15px] font-semibold leading-7 text-[#D2D2D7]">
               Запусти команду в терминале — она посчитает API-equivalent и опубликует твою страницу
-              на <span className="text-white">tokmax.ru/&lt;ник&gt;</span>.
+              на <span className="text-white">tokmax.vibecoding.tech/&lt;ник&gt;</span>.
             </p>
             <div className="mt-6">
               <PromptCopyBox prompt={SELF_SERVE_ONELINER} />

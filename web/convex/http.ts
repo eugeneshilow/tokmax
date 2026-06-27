@@ -207,8 +207,8 @@ http.route({
         ok: true,
         created: result.created,
         nick: result.nick,
-        // Короткая шер-ссылка (редиректит на tokenmax.vibecoding.ru/<nick>).
-        url: `https://tokmax.ru/${result.nick}`,
+        // Канонический served URL профиля.
+        url: `https://tokmax.vibecoding.tech/${result.nick}`,
         suspicious: result.suspicious,
         costUsd: result.costUsd,
         totalTokens: result.totalTokens,

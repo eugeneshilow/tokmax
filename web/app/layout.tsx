@@ -8,7 +8,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tokenmax.vibecoding.ru'),
+  metadataBase: new URL('https://tokmax.vibecoding.tech'),
   title: 'tokenmax — публичный счётчик API-equivalent расхода токенов',
   description:
     'tokenmax считает, во сколько обошёлся бы твой локальный расход Codex и Claude Code по цене API, и публикует счётчик одной командой.',

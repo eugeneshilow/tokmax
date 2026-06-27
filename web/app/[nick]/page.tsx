@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: TmxNickPageProps): Promise<Me
 
   const title = `${profile.nick} нажёг ${formatUsd(profile.costUsd)} по API-расценкам — tokenmax`
   const description = `${profile.nick} сжёг ${formatCompactNumber(profile.totalTokens)} токенов Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} по цене API. Период с ${profile.firstDay} по ${profile.lastDay}.`
-  const url = `https://tokenmax.vibecoding.ru/${profile.nick}`
+  const url = `https://tokmax.vibecoding.tech/${profile.nick}`
 
   return {
     title,
@@ -65,7 +65,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
 
   if (!profile) notFound()
 
-  const shareUrl = `tokmax.ru/${profile.nick}`
+  const shareUrl = `tokmax.vibecoding.tech/${profile.nick}`
   const peakDay =
     profile.daily.length > 0
       ? profile.daily.reduce((max, day) => (day.totalTokens > max.totalTokens ? day : max))

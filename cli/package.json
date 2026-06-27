@@ -1,7 +1,7 @@
 {
   "name": "tokmax",
-  "version": "0.5.0",
-  "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokenmax leaderboard (tokmax.ru). Aggregates only — never your prompts, files, or keys.",
+  "version": "0.6.0",
+  "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokenmax leaderboard (tokmax.vibecoding.tech). Aggregates only — never your prompts, files, or keys.",
   "type": "module",
   "bin": {
     "tokmax": "bin/tokmax.mjs"
@@ -14,7 +14,7 @@
     "type": "git",
     "url": "git+https://github.com/eugeneshilow/tokmax.git"
   },
-  "homepage": "https://tokmax.ru",
+  "homepage": "https://tokmax.vibecoding.tech",
   "keywords": [
     "codex",
     "claude-code",

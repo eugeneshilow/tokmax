@@ -424,7 +424,7 @@ export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export const TMX_PROFILE_BASE_URL = 'https://tokenmax.vibecoding.ru'
+export const TMX_PROFILE_BASE_URL = 'https://tokmax.vibecoding.tech'
 
 export function tmxProfileUrl(nick: string): string {
   return `${TMX_PROFILE_BASE_URL}/${nick}`

@@ -207,7 +207,7 @@ export const recomputeProfile = internalMutation({
   },
 })
 
-/** Публичный профиль для SSR-страницы `https://tokenmax.vibecoding.ru/[nick]`. */
+/** Публичный профиль для SSR-страницы `https://tokmax.vibecoding.tech/[nick]`. */
 export const getByNick = query({
   args: { nick: v.string() },
   returns: v.union(vTmxProfilePublic, v.null()),
