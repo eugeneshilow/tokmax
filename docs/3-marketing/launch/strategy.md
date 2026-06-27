@@ -1,13 +1,13 @@
 # tokmax — стратегия международного лонча
 
-Дата: 2026-06-28 · Статус: draft · Дом: `~/tokmax-vibecoding-tech/launch/`
+Дата: 2026-06-28 · Статус: draft · Дом: `~/tokmax-vibecoding-tech/docs/3-marketing/launch/`
 
 ## Где что лежит (карта)
 
 - Весь международный лонч tokmax живёт в **этом репозитории** (`~/tokmax-vibecoding-tech/`,
   GitHub `eugeneshilow/tokmax`) — **отдельно** от РУ-монорепо `vibecoding-ru`.
   РУ-трек физически не задевается: другой репо, другие каналы, другая аудитория.
-- Папка `launch/`:
+- Папка `docs/3-marketing/launch/`:
   - `strategy.md` — этот файл (стратегия, для владельца, по-русски).
   - дальше появятся: `product-hunt.md`, `show-hn.md`, `reddit.md`,
     `twitter-thread.md`, `runbook.md`, `assets/` (GIF/скрины).
