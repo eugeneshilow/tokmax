@@ -23,16 +23,26 @@ const SELF_SERVE_ONELINER = 'npx tokmax'
 export async function generateMetadata({ params }: TmxNickPageProps): Promise<Metadata> {
   const { nick: rawNick } = await params
   const nick = rawNick.toLowerCase()
+
+  // Locale-aware метаданные: русскоязычный браузер → RU, иначе EN (детект по
+  // Accept-Language, НЕ по гео).
+  const acceptLang = (await headers()).get('accept-language')?.toLowerCase() ?? ''
+  const isRu = acceptLang.startsWith('ru')
+
   const profile = await loadTmxProfile(nick)
 
   if (!profile) {
     return {
-      title: 'Профиль не найден — tokenmax',
+      title: isRu ? 'Профиль не найден — tokmax' : 'Profile not found — tokmax',
     }
   }
 
-  const title = `${profile.nick} нажёг ${formatUsd(profile.costUsd)} по API-расценкам — tokenmax`
-  const description = `${profile.nick} сжёг ${formatCompactNumber(profile.totalTokens)} токенов Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} по цене API. Период с ${profile.firstDay} по ${profile.lastDay}.`
+  const title = isRu
+    ? `${profile.nick} нажёг ${formatUsd(profile.costUsd)} по API-расценкам — tokmax`
+    : `${profile.nick} burned ${formatUsd(profile.costUsd)} at API prices — tokmax`
+  const description = isRu
+    ? `${profile.nick} сжёг ${formatCompactNumber(profile.totalTokens)} токенов Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} по цене API. Период с ${profile.firstDay} по ${profile.lastDay}.`
+    : `${profile.nick} burned ${formatCompactNumber(profile.totalTokens)} tokens across Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} at API prices. ${profile.firstDay} to ${profile.lastDay}.`
   const url = `https://tokmax.vibecoding.tech/${profile.nick}`
 
   return {
@@ -94,29 +104,106 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         })()
       : null
 
+  const machines = profile.machineLabels.join(' + ') || '—'
+
+  // Bilingual copy: RU для русскоязычных браузеров, EN по умолчанию.
+  const t = isRu
+    ? {
+        heroVerb: 'нажёг',
+        heroApiSuffix: 'по API.',
+        heroPara: `Это ${formatInteger(profile.totalTokens)} токенов Codex и Claude Code за период с ${profile.firstDay} по ${profile.lastDay}. Столько этот объём стоил бы, если платить за usage по цене API, а не по подписке.`,
+        notVerified: 'число не верифицировано',
+        econLabel: 'api ÷ подписка',
+        econSentence: econ
+          ? `Подписка ${formatUsdPrecise(econ.sub)}/мес — за период это ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(profile.costUsd)} → отбил подписку в ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, сэкономил +${formatUsdPrecise(econ.profit)}` : ''}.`
+          : '',
+        buildYourOwnCta: 'Собрать свой',
+        asideApiEquivalent: 'api-equivalent',
+        asideApiPrice: `${formatUsdPrecise(profile.costUsd)} по цене API`,
+        asideTokensTotal: 'токенов всего',
+        asideTokensCount: `${formatInteger(profile.totalTokens)} токенов`,
+        rowPeriod: 'период',
+        rowDays: 'дней',
+        rowCli: 'cli',
+        machinesNote: `Машины: ${machines}. Собрано локально, наружу уходят только агрегаты.`,
+        dailyBurnTitle: 'Дневной расход токенов',
+        scoreboardTitle: 'Итого по источникам',
+        buildEyebrow: 'собери свой',
+        counterTitleLine1: 'Свой счётчик —',
+        counterTitleLine2: 'одной командой.',
+        counterPara:
+          'Запусти одну команду в терминале — она прочитает локальные логи Codex и Claude Code, посчитает API-equivalent и опубликует твою страницу. Наружу уходят только агрегаты: ни ключей, ни сырых логов.',
+        howComputed: 'Как это считается',
+        footerEyebrow: `${profile.nick} · с ${profile.firstDay} по ${profile.lastDay}`,
+        footerTitle: `${formatUsd(profile.costUsd)} по API. Скриншоть и кидай в чат.`,
+        statApiEquivalentDetail: 'столько этот объём стоил бы по цене API, а не по подписке',
+        statTotalTokensLabel: 'Итого токенов',
+        statTotalTokensDetail: `${formatInteger(profile.totalTokens)} токенов Codex + Claude Code`,
+        statPeriodLabel: 'Период',
+        statPeriodDetail: `с ${profile.firstDay} по ${profile.lastDay} · ${profile.daily.length} дней`,
+        statPeakLabel: 'Пик дня',
+        statPeakDetail: peakDay ? `${peakDay.date}: самый горячий день` : 'нет дневных данных',
+      }
+    : {
+        heroVerb: 'burned',
+        heroApiSuffix: 'at API prices.',
+        heroPara: `That's ${formatInteger(profile.totalTokens)} tokens across Codex and Claude Code, from ${profile.firstDay} to ${profile.lastDay}. That's what this usage would cost if you paid for it at API prices instead of on a subscription.`,
+        notVerified: 'figure not verified',
+        econLabel: 'api ÷ subscription',
+        econSentence: econ
+          ? `Subscription ${formatUsdPrecise(econ.sub)}/mo — over this period that's ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(profile.costUsd)} → paid the subscription back ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, saved +${formatUsdPrecise(econ.profit)}` : ''}.`
+          : '',
+        buildYourOwnCta: 'Build your own',
+        asideApiEquivalent: 'api-equivalent',
+        asideApiPrice: `${formatUsdPrecise(profile.costUsd)} at API prices`,
+        asideTokensTotal: 'total tokens',
+        asideTokensCount: `${formatInteger(profile.totalTokens)} tokens`,
+        rowPeriod: 'period',
+        rowDays: 'days',
+        rowCli: 'cli',
+        machinesNote: `Machines: ${machines}. Computed locally; only aggregates leave the box.`,
+        dailyBurnTitle: 'Daily token burn',
+        scoreboardTitle: 'Totals by source',
+        buildEyebrow: 'build your own',
+        counterTitleLine1: 'Your own counter —',
+        counterTitleLine2: 'one command.',
+        counterPara:
+          'Run one command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and publishes your page. Only aggregates leave the box: no keys, no raw logs.',
+        howComputed: "How it's computed",
+        footerEyebrow: `${profile.nick} · ${profile.firstDay} to ${profile.lastDay}`,
+        footerTitle: `${formatUsd(profile.costUsd)} at API prices. Screenshot it and drop it in chat.`,
+        statApiEquivalentDetail: 'what this usage would cost at API prices, not on a subscription',
+        statTotalTokensLabel: 'Total tokens',
+        statTotalTokensDetail: `${formatInteger(profile.totalTokens)} tokens across Codex + Claude Code`,
+        statPeriodLabel: 'Period',
+        statPeriodDetail: `${profile.firstDay} to ${profile.lastDay} · ${profile.daily.length} days`,
+        statPeakLabel: 'Peak day',
+        statPeakDetail: peakDay ? `${peakDay.date}: hottest day` : 'no daily data',
+      }
+
   const statCards = [
     {
       label: 'API-equivalent',
       value: formatUsdPrecise(profile.costUsd),
-      detail: 'столько этот объём стоил бы по цене API, а не по подписке',
+      detail: t.statApiEquivalentDetail,
       icon: Flame,
     },
     {
-      label: 'Итого токенов',
+      label: t.statTotalTokensLabel,
       value: formatCompactNumber(profile.totalTokens),
-      detail: `${formatInteger(profile.totalTokens)} токенов Codex + Claude Code`,
+      detail: t.statTotalTokensDetail,
       icon: Gauge,
     },
     {
-      label: 'Период',
+      label: t.statPeriodLabel,
       value: `${profile.firstDay}`,
-      detail: `с ${profile.firstDay} по ${profile.lastDay} · ${profile.daily.length} дней`,
+      detail: t.statPeriodDetail,
       icon: ReceiptText,
     },
     {
-      label: 'Пик дня',
+      label: t.statPeakLabel,
       value: peakDay ? formatCompactNumber(peakDay.totalTokens) : '—',
-      detail: peakDay ? `${peakDay.date}: самый горячий день` : 'нет дневных данных',
+      detail: t.statPeakDetail,
       icon: Zap,
     },
   ]
@@ -135,21 +222,19 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             </div>
 
             <h1 className="mt-8 max-w-5xl text-balance text-[44px] font-black leading-[0.95] tracking-normal text-white sm:text-[64px] lg:text-[80px]">
-              {profile.nick} нажёг
+              {profile.nick} {t.heroVerb}
               <br />
-              <span className="text-[#FF7A1A]">{formatUsd(profile.costUsd)}</span> по API.
+              <span className="text-[#FF7A1A]">{formatUsd(profile.costUsd)}</span> {t.heroApiSuffix}
             </h1>
 
             <p className="mt-7 max-w-3xl text-[17px] leading-7 text-[#D2D2D7] md:text-[20px] md:leading-8">
-              Это {formatInteger(profile.totalTokens)} токенов Codex и Claude Code за период с{' '}
-              {profile.firstDay} по {profile.lastDay}. Столько этот объём стоил бы, если платить за
-              usage по цене API, а не по подписке.
+              {t.heroPara}
             </p>
 
             {profile.suspicious ? (
               <p className="mt-5 inline-flex items-center gap-2 text-[13px] font-semibold text-[#A1A1A6]">
                 <ShieldAlert className="h-4 w-4" />
-                число не верифицировано
+                {t.notVerified}
               </p>
             ) : null}
 
@@ -157,17 +242,14 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               <div className="mt-7 inline-flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-[#18D86B]/40 bg-[#18D86B]/10 px-5 py-4">
                 <div>
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9EFFBF]">
-                    api ÷ подписка
+                    {t.econLabel}
                   </p>
                   <p className="text-[44px] font-black leading-none text-[#18D86B]">
                     {econ.ratio.toFixed(1)}×
                   </p>
                 </div>
                 <p className="max-w-md text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                  Подписка {formatUsdPrecise(econ.sub)}/мес — за период это ≈{' '}
-                  {formatUsdPrecise(econ.subTotal)}. API-equivalent {formatUsdPrecise(profile.costUsd)}{' '}
-                  → отбил подписку в {econ.ratio.toFixed(1)}×
-                  {econ.profit >= 0 ? `, сэкономил +${formatUsdPrecise(econ.profit)}` : ''}.
+                  {t.econSentence}
                 </p>
               </div>
             ) : null}
@@ -200,7 +282,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 href="#build-your-counter"
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#18D86B]/50 bg-[#18D86B]/10 px-4 text-[#B9FFD5] transition-colors hover:bg-[#18D86B]/18"
               >
-                Собрать свой
+                {t.buildYourOwnCta}
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
@@ -210,7 +292,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             <div className="border-b border-white/14 pb-5">
               <div className="flex items-center justify-between gap-4">
                 <p className="font-mono text-[12px] font-black uppercase tracking-[0.08em] text-[#A1A1A6]">
-                  api-equivalent
+                  {t.asideApiEquivalent}
                 </p>
                 <Flame className="h-5 w-5 text-[#FF7A1A]" />
               </div>
@@ -218,14 +300,14 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 {formatUsd(profile.costUsd)}
               </p>
               <p className="mt-3 text-[13px] font-semibold text-[#A1A1A6]">
-                {formatUsdPrecise(profile.costUsd)} по цене API
+                {t.asideApiPrice}
               </p>
             </div>
 
             <div className="mt-4 border border-[#3861FB]/40 bg-[#0A1733] p-4 text-[#DCE7FF]">
               <div className="flex items-center justify-between gap-4">
                 <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9DBBFF]">
-                  токенов всего
+                  {t.asideTokensTotal}
                 </p>
                 <Gauge className="h-5 w-5 text-[#3861FB]" />
               </div>
@@ -233,30 +315,29 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 {formatCompactNumber(profile.totalTokens)}
               </p>
               <p className="mt-3 text-[13px] font-bold text-[#9DBBFF]">
-                {formatInteger(profile.totalTokens)} токенов
+                {t.asideTokensCount}
               </p>
             </div>
 
             <div className="mt-5 grid gap-1 font-mono text-[12px] font-bold uppercase tracking-normal text-[#A1A1A6]">
               <div className="flex items-center justify-between gap-4">
-                <span>период</span>
+                <span>{t.rowPeriod}</span>
                 <span className="text-[#D2D2D7]">
                   {profile.firstDay} — {profile.lastDay}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span>дней</span>
+                <span>{t.rowDays}</span>
                 <span className="text-[#D2D2D7]">{profile.daily.length}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span>cli</span>
+                <span>{t.rowCli}</span>
                 <span className="text-[#D2D2D7]">{profile.cliVersion}</span>
               </div>
             </div>
 
             <p className="mt-4 text-[12px] font-semibold leading-5 text-[#A1A1A6]">
-              Машины: {profile.machineLabels.join(' + ') || '—'}. Собрано локально, наружу уходят
-              только агрегаты.
+              {t.machinesNote}
             </p>
           </aside>
         </div>
@@ -275,7 +356,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
           <div className="mx-auto max-w-[1680px] px-4 py-6 md:px-6">
             <SectionHeader
               eyebrow="daily burn"
-              title="Дневной расход токенов"
+              title={t.dailyBurnTitle}
               right={
                 <>
                   <span className="text-[#3861FB]">Codex</span> /{' '}
@@ -296,7 +377,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         <div className="min-w-0 self-start border border-[#D2D2D7] bg-white">
           <SectionHeader
             eyebrow="scoreboard"
-            title="Итого по источникам"
+            title={t.scoreboardTitle}
             right={`${profile.machineLabels.join(' + ') || 'aggregate'} · API estimate`}
           />
           <div className="overflow-x-auto">
@@ -343,16 +424,15 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
             <div className="min-w-0">
               <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#18D86B]">
-                собери свой
+                {t.buildEyebrow}
               </p>
               <h2 className="mt-3 max-w-3xl text-[34px] font-black leading-[0.98] md:text-[52px]">
-                Свой счётчик —<br />
-                одной командой.
+                {t.counterTitleLine1}
+                <br />
+                {t.counterTitleLine2}
               </h2>
               <p className="mt-5 max-w-2xl text-[16px] font-semibold leading-7 text-[#D2D2D7]">
-                Запусти одну команду в терминале — она прочитает локальные логи Codex и Claude Code,
-                посчитает API-equivalent и опубликует твою страницу. Наружу уходят только агрегаты:
-                ни ключей, ни сырых логов.
+                {t.counterPara}
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
@@ -381,7 +461,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                   className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 px-4 text-white transition-colors hover:bg-white/10"
                 >
                   <Terminal className="h-4 w-4" />
-                  Как это считается
+                  {t.howComputed}
                 </Link>
               </div>
             </div>
@@ -395,10 +475,10 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 py-7 md:flex-row md:items-end md:justify-between md:px-6">
           <div>
             <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">
-              {profile.nick} · с {profile.firstDay} по {profile.lastDay}
+              {t.footerEyebrow}
             </p>
             <h2 className="mt-2 text-[28px] font-black leading-tight">
-              {formatUsd(profile.costUsd)} по API. Скриншоть и кидай в чат.
+              {t.footerTitle}
             </h2>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[14px] font-black">
