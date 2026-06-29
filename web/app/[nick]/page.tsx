@@ -723,7 +723,7 @@ function DailyBar({ day, max }: { day: TmxProfileDaily; max: number }) {
         </div>
       </div>
       <div className="md:text-right">
-        <div className="text-[15px] font-black text-[#FF7A1A]">${formatUsd(cost)}</div>
+        <div className="text-[15px] font-black text-[#FF7A1A]">{formatUsd(cost)}</div>
         <div className="text-[11px] font-semibold text-[#6E6E73]">
           {formatCompactNumber(day.totalTokens)} tokens
         </div>
