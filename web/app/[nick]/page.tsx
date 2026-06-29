@@ -6,7 +6,16 @@ import {
   type TmxProfileSource,
 } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
-import { ArrowUpRight, Flame, Gauge, ReceiptText, ShieldAlert, Terminal, Zap } from 'lucide-react'
+import {
+  ArrowUpRight,
+  BadgeCheck,
+  Flame,
+  Gauge,
+  ReceiptText,
+  ShieldAlert,
+  Terminal,
+  Zap,
+} from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -179,6 +188,26 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 <Badge key={label}>{label}</Badge>
               ))}
             </div>
+
+            {/* X avatar: verified profiles mirror their X picture + name. */}
+            {profile.avatar_url ? (
+              <div className="mt-6 flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={profile.avatar_url.replace('_normal', '_400x400')}
+                  alt={profile.nick}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 shrink-0 rounded-full border border-white/20 object-cover"
+                />
+                {profile.verified ? (
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[12px] font-bold uppercase tracking-[0.08em] text-[#7DA2FF]">
+                    <BadgeCheck className="h-4 w-4" />
+                    verified via X
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* Hero stat: nick + the huge orange number. */}
             <h1 className="mt-6 max-w-5xl text-balance text-[42px] font-black leading-[0.92] tracking-normal text-white sm:text-[60px] lg:text-[78px]">
