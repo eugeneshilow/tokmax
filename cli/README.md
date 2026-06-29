@@ -1,114 +1,78 @@
 # tokmax
 
-Measures how many tokens you burned in **Codex** and **Claude Code** on this
-machine, converts that into **API-equivalent** dollars, and publishes the
-aggregate to the public leaderboard at
-[tokmax.vibecoding.tech](https://tokmax.vibecoding.tech).
+**How much would your AI coding cost at API prices?** You're on a Codex / Claude
+Code subscription — `tokmax` reads your local usage logs, works out what the same
+tokens would have cost at pay-as-you-go **API prices**, and turns it into a
+shareable page + a public leaderboard.
 
-One command — a short onboarding with a progress bar:
+One command, nothing to sign up for first:
 
 ```bash
 npx tokmax
 ```
 
-You choose how to publish:
+It scans your logs, shows your number in the terminal, and publishes your page at
+**tokmax.vibecoding.tech/your-handle**. Screenshot it, drop it in a chat, climb
+the leaderboard.
 
-- **Sign in with X** (recommended) — your page name is your `@handle`. Adds
-  identity, multi-machine merge (run it on another machine and the totals
-  combine automatically), a verified badge, and an optional daily auto-update.
-- **Quick (anonymous)** — just pick a nick and publish.
+## Why people run it
 
-After publishing, your page is live at `https://tokmax.vibecoding.tech/<nick>`.
+- **A real number.** Not "I use it a lot" — an actual dollar figure at API rates,
+  computed locally with [LiteLLM](https://github.com/BerriAI/litellm) prices and
+  [ccusage](https://github.com/ryoppippi/ccusage) counting.
+- **A page you can flex.** `tokmax.vibecoding.tech/<you>` with your totals, your
+  daily burn in dollars, and your rank.
+- **Every machine, one total.** Run it on your laptop and your server — sign in
+  once with X and they merge into a single combined number automatically.
 
-## What leaves the machine (and what does not)
+## Getting started
 
-This is a tool about trust, so the boundary is strict and verifiable in the code
-(`src/adapters/*.mjs`):
-
-- **Only the aggregate is sent:** per-model token counts (`input`, `output`,
-  `cacheCreate`, `cacheRead`, `reasoning`), the per-day dates, and the
-  **locally-computed `costUsd`** (per-source aggregate + total) — still a derived
-  number, not raw material.
-- **Never sent:** prompt text, file contents, tool output, API keys, raw log
-  lines. The adapters read exactly four-or-five numeric usage fields per log line
-  plus the model id and a timestamp, and drop everything else.
-
-It's open source so you can read this yourself rather than take it on faith.
-
-## Install & run
-
-Needs Node.js >= 18. Zero runtime dependencies (just built-in Node modules and
-the global `fetch`).
+Needs Node.js 18+. Zero install required — `npx` runs it.
 
 ```bash
-# one-off, no install — starts the onboarding
+# the guided way — pick how to publish, then it computes + publishes
 npx tokmax
 
-# or globally
-npm i -g tokmax
-tokmax
-
-# sign in with X and publish this machine in one go
+# sign in with X (recommended): your page is your @handle, and extra machines
+# merge automatically. This signs you in AND publishes this machine.
 npx tokmax login
 
-# publish an additional machine (same X login) — totals merge automatically
-npx tokmax login
+# keep it fresh automatically (optional) — offered after you publish
+npx tokmax daily on
 ```
 
-### Options
+When you publish, it opens your page in the browser. To add another computer,
+just run `npx tokmax login` there with the same X account.
 
-```text
-tokmax [<nick>] [options]
+## Your data stays yours
 
-  login                sign in with X and publish this machine
-  logout               sign out on this machine (logout --all = every machine)
-  daily on|off|status  the daily auto-update
-  --onboard            force the onboarding flow
-  --since YYYY-MM-DD    count only from this day (default: whole history)
-  --api <baseUrl>      API base URL
-  --dry-run            show the preview + request body, publish nothing
-  --yes, -y            skip the confirmation prompt
-  --help, -h           help
+It's open source so you can verify this in `src/adapters/`:
+
+- **Only numbers leave your machine** — per-model token counts, the per-day dates,
+  and the dollar figure computed locally on your side.
+- **Your prompts, code, tool output, API keys, and raw logs never leave.** The
+  adapters read a handful of numeric usage fields per log line and ignore the rest.
+
+Want to see exactly what would be sent without sending anything? `npx tokmax --dry-run`.
+
+## Managing your page
+
+```bash
+npx tokmax daily off    # stop the daily auto-update on this machine
+npx tokmax logout       # sign out on this machine (logout --all = everywhere)
+npx tokmax delete       # permanently remove your page + account
 ```
-
-`--dry-run` prints the preview and the exact request body that would be sent —
-handy to confirm with your own eyes that only numbers go out.
 
 ## How the dollar is computed
 
-**Prices: LiteLLM · Counting: ccusage.**
+Rates come from a pinned LiteLLM snapshot bundled in the package, plus a small
+override map for model ids LiteLLM doesn't list yet. The dollar is computed
+**locally and offline** — a per-model sum of `tokens × per-million rate`, with
+cache reads charged at the discounted rate (~0.1× input) so the figure is honest.
+The computed number is what gets published; the terminal preview equals your page
+by construction.
 
-Rates come from a pinned [LiteLLM](https://github.com/BerriAI/litellm) snapshot
-bundled in the package (`src/pricing/litellm-prices.json`) plus our local override
-map (`src/pricing/overrides.mjs`) for synthetic/dated ids LiteLLM doesn't have.
-The CLI computes the dollar **locally, offline**, with our formula — a sum over
-models of `(input·r.input + output·r.output + cacheCreate·r.cacheCreate +
-cacheRead·r.cacheRead + reasoning·r.reasoning) / 1e6`, where `r` is the
-per-million rate for the recognized model (or a fallback for an unknown one).
-Cache reads (`cacheRead`) use the discounted rate (~0.1× input), not the full
-rate — so the number is honest.
-
-The CLI then **puts the computed `costUsd` straight into the published aggregate**
-(`sources[]` + `totals`); the server just **stores and shows it** — it never
-recomputes. The terminal preview == the published number by construction.
-
-Refresh the bundled price snapshot from upstream LiteLLM: `npm run prices:refresh`.
-
-## Where the numbers come from
-
-- **Claude Code:** `~/.claude*/projects/**/*.jsonl` — usage from assistant
-  messages (`message.usage`).
-- **Codex:** `~/.codex/sessions/**/*.jsonl` and
-  `~/.codex/archived_sessions/*.jsonl` — `token_count` events (per-turn deltas).
-
-Each source is isolated in its own adapter (`src/adapters/`) and works
-defensively: broken lines and missing fields are simply skipped (default 0).
-
-## Endpoint
-
-By default the CLI talks to the isolated tokmax deployment — only to the hardened
-publish route. The dollar is computed locally (offline); the network is needed
-only to publish the aggregate. Override the base URL with `--api <baseUrl>`.
+Full options: `npx tokmax --help`.
 
 ## License
 

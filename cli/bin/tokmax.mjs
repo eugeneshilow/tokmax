@@ -39,10 +39,20 @@ const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Open a URL in the default browser (best-effort; silent if unavailable).
+// Hard sanitizer: only ever hand the OS a vetted https URL on OUR own domain —
+// never arbitrary or server-controlled input. Closes CodeQL js/command-line-injection.
 function openUrl(url) {
+  let safe;
+  try {
+    const u = new URL(String(url));
+    if (u.protocol !== 'https:' || u.hostname !== new URL(PAGE_BASE).hostname) return false;
+    safe = u.href;
+  } catch {
+    return false;
+  }
   try {
     const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
-    const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+    const args = process.platform === 'win32' ? ['/c', 'start', '', safe] : [safe];
     const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
     child.unref();
     return true;
@@ -674,7 +684,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     console.log(`\n  Done! Your page: ${json.url}\n`);
 
     // Auto-open the published page so any machine lands straight on the result.
-    if (json.url && interactive && openUrl(json.url)) {
+    const pageUrl = `${PAGE_BASE}/${encodeURIComponent(json.nick || nick)}`;
+    if (interactive && openUrl(pageUrl)) {
       console.log('  Opening it in your browser…\n');
     }
 
