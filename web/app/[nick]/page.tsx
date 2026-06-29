@@ -11,6 +11,7 @@ import {
   BadgeCheck,
   Flame,
   Gauge,
+  Github,
   ReceiptText,
   ShieldAlert,
   Terminal,
@@ -231,6 +232,19 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               {profile.firstDay}–{profile.lastDay}
             </p>
 
+            {/* BIG command — the screenshot-zone CTA: run this, get your own page. */}
+            <div className="mt-6 inline-flex items-center gap-3 rounded-xl border border-white/25 bg-[#0E0E0E] px-5 py-4">
+              <span className="font-mono text-[24px] font-black leading-none text-[#18D86B] md:text-[32px]">$</span>
+              <span className="font-mono text-[26px] font-black leading-none tracking-tight text-white md:text-[38px]">
+                npx tokmax
+              </span>
+              <span className="ml-1 hidden font-mono text-[12px] font-bold uppercase tracking-[0.08em] text-[#8A8A8F] sm:inline">
+                ← run it,
+                <br />
+                get your own
+              </span>
+            </div>
+
             {/* Rank: the leaderboard brag. */}
             {rank ? (
               <Link
@@ -265,19 +279,20 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </div>
             ) : null}
 
-            {/* Repo + credibility line (muted). */}
-            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] font-semibold text-[#6E6E73]">
+            {/* Repo — visible (owner: the GitHub repo must be clearly shown) + attribution. */}
+            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[13px] font-semibold">
               <Link
                 href={REPO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[#A1A1A6] transition-colors hover:text-white"
+                className="inline-flex items-center gap-1.5 text-[14px] font-bold text-white transition-colors hover:text-[#FF7A1A]"
               >
+                <Github className="h-4 w-4" />
                 {REPO_DISPLAY}
-                <ArrowUpRight className="h-3 w-3" />
+                <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
               </Link>
-              <span className="text-[#5A5A5F]">· open source ·</span>
-              <span>{t.attribution}</span>
+              <span className="text-[#5A5A5F]">· open source</span>
+              <span className="text-[#6E6E73]">· {t.attribution}</span>
             </div>
 
             {/* Actions + classy screenshot nudge. */}
