@@ -76,19 +76,29 @@ export const publish = internalMutation({
       }
     }
     const daily = buildDaily(args.daily)
+    // P1 (security audit): period-доски (month/year) ранжируют СУММУ daily[].costUsd,
+    // а не totals.costUsd. Значит потолки и suspicious обязаны смотреть и на сумму
+    // дней — иначе totals.costUsd=14999 (не suspicious, виден на all-time) + раздутые
+    // daily дают миллионы за месяц/год на period-доске. daily приходит от клиента.
+    const dailySum = daily.reduce((acc, d) => acc + d.costUsd, 0)
 
     // HARDENING #6: value-cap = ОТКАЗ, не только флаг. Сумма выше жёсткого
     // потолка неправдоподобна (абьюз/мусор) → отклоняем. Серую зону
     // (> soft cap, <= hard cap) пропускаем, но метим suspicious (прячем из
-    // leaderboard).
-    if (totals.costUsd > TMX_VALUE_HARD_CAP_USD) {
+    // leaderboard). Бьём по БОЛЬШЕМУ из total и суммы дней.
+    if (totals.costUsd > TMX_VALUE_HARD_CAP_USD || dailySum > TMX_VALUE_HARD_CAP_USD) {
       return {
         ok: false as const,
         reason: 'value_too_high' as const,
         message: 'Сумма неправдоподобна.',
       }
     }
-    const suspicious = totals.costUsd > TMX_VALUE_CAP_USD
+    // suspicious, если total ИЛИ сумма дней пробивают мягкий потолок, либо если
+    // сумма дней заметно (>2%) расходится с присланным total — дневные $ обязаны
+    // сходиться с общим $, иначе это отравление period-доски.
+    const dailyDiverges = totals.costUsd > 0 && dailySum > totals.costUsd * 1.02 + 1
+    const suspicious =
+      totals.costUsd > TMX_VALUE_CAP_USD || dailySum > TMX_VALUE_CAP_USD || dailyDiverges
 
     const now = Date.now()
 
