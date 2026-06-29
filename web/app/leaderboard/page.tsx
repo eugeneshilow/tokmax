@@ -1,5 +1,5 @@
 import { formatCompactNumber, formatUsd, formatUsdPrecise } from '@/lib/format'
-import { loadTmxLeaderboard } from '@/lib/tmx-profile-live'
+import { loadTmxLeaderboardByPeriod } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
 import { ArrowUpRight, Flame, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -10,10 +10,62 @@ export const revalidate = 0
 
 const SELF_SERVE_ONELINER = 'npx tokmax'
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+type PeriodOption = { value: string; label: string }
+
+/** YYYY-MM for a Date (UTC, so the period matches the daily[] date strings). */
+function monthKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/** Human label for any period token: "all" | "YYYY" | "YYYY-MM". */
+function periodLabel(period: string): string {
+  if (period === 'all') return 'All-time'
+  if (/^\d{4}$/.test(period)) return period
+  const [y, m] = period.split('-')
+  const idx = Number(m) - 1
+  return `${MONTH_NAMES[idx] ?? m} ${y}`
+}
+
+/** Recent months (current first), recent years, then all-time — selectable set. */
+function buildPeriodOptions(now: Date): {
+  current: string
+  months: PeriodOption[]
+  years: PeriodOption[]
+} {
+  const current = monthKey(now)
+  const months: PeriodOption[] = []
+  for (let i = 0; i < 6; i += 1) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
+    const value = monthKey(d)
+    months.push({ value, label: periodLabel(value) })
+  }
+  const years: PeriodOption[] = []
+  for (let i = 0; i < 2; i += 1) {
+    const y = String(now.getUTCFullYear() - i)
+    years.push({ value: y, label: y })
+  }
+  return { current, months, years }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const title = 'tokmax leaderboard — who burned the most at API prices'
   const description =
-    'Ranked by API-equivalent $: how much each person burned across Codex + Claude Code at API prices.'
+    'Ranked by API-equivalent $: how much each person burned across Codex + Claude Code at API prices — by month, by year, or all-time.'
   return {
     title,
     description,
@@ -23,24 +75,45 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function TmxLeaderboardPage() {
-  const rows = await loadTmxLeaderboard(100)
+export default async function TmxLeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string | string[] }>
+}) {
+  const now = new Date()
+  const { current, months, years } = buildPeriodOptions(now)
+
+  // Allowed periods = the selectable set + all-time. Anything else (or none)
+  // falls back to the CURRENT calendar month (the default view).
+  const allowed = new Set<string>(['all', ...months.map((m) => m.value), ...years.map((y) => y.value)])
+  const raw = (await searchParams)?.period
+  const requested = Array.isArray(raw) ? raw[0] : raw
+  const period = requested && allowed.has(requested) ? requested : current
+
+  const rows = await loadTmxLeaderboardByPeriod(period, 100)
+  const label = periodLabel(period)
 
   const t = {
     eyebrow: 'leaderboard',
-    title: 'Who burned the most at API prices.',
-    sub: 'Ranked by API-equivalent $ — what your Codex + Claude Code usage would cost at API prices. Run it and land on the board.',
+    title: `Who burned the most — ${label}.`,
+    sub: 'Ranked by API-equivalent $ — what your Codex + Claude Code usage would cost at API prices. Pick a month, a year, or all-time.',
     rank: '#',
     nick: 'nick',
     api: 'API-equivalent',
     tokens: 'tokens',
     machines: 'machines',
-    empty: 'Empty so far — be the first.',
+    empty: `No one on the board for ${label} yet — be the first.`,
     buildEyebrow: 'build your own',
     buildTitle: 'Your counter — one command.',
     buildPara:
       'Run the command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and puts you on this board. Only aggregates leave your machine.',
     attribution: 'Prices: LiteLLM · Counting: ccusage',
+  }
+
+  function pillClass(active: boolean): string {
+    return active
+      ? 'inline-flex h-8 items-center rounded-full bg-[#FF7A1A] px-3 font-mono text-[12px] font-bold text-black'
+      : 'inline-flex h-8 items-center rounded-full border border-white/20 px-3 font-mono text-[12px] font-bold text-[#D2D2D7] hover:border-white/50 hover:text-white'
   }
 
   return (
@@ -54,6 +127,35 @@ export default async function TmxLeaderboardPage() {
             {t.title}
           </h1>
           <p className="mt-6 max-w-3xl text-[16px] leading-7 text-[#D2D2D7] md:text-[19px]">{t.sub}</p>
+
+          {/* Period selector — months, years, all-time. Links keep this a
+              server component (force-dynamic): each pill is ?period=…. */}
+          <div className="mt-7 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#6E6E73]">
+                month
+              </span>
+              {months.map((m) => (
+                <Link key={m.value} href={`/leaderboard?period=${m.value}`} className={pillClass(period === m.value)}>
+                  {m.label}
+                </Link>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#6E6E73]">
+                year
+              </span>
+              {years.map((y) => (
+                <Link key={y.value} href={`/leaderboard?period=${y.value}`} className={pillClass(period === y.value)}>
+                  {y.label}
+                </Link>
+              ))}
+              <Link href="/leaderboard?period=all" className={pillClass(period === 'all')}>
+                All-time
+              </Link>
+            </div>
+          </div>
+
           <div className="mt-7 inline-flex h-10 items-center rounded-lg border border-white/20 px-4 font-mono text-[13px] font-bold">
             {SELF_SERVE_ONELINER}
           </div>
@@ -62,6 +164,9 @@ export default async function TmxLeaderboardPage() {
 
       <section className="bg-white">
         <div className="mx-auto max-w-[1680px] px-4 py-6 md:px-6">
+          <p className="mb-4 font-mono text-[12px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">
+            {label}
+          </p>
           {rows.length === 0 ? (
             <p className="py-16 text-center text-[16px] font-semibold text-[#6E6E73]">{t.empty}</p>
           ) : (

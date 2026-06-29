@@ -17,6 +17,7 @@ export type TmxProfileDaily = {
   codexTokens: number
   claudeTokens: number
   totalTokens: number
+  costUsd?: number
 }
 
 export type TmxProfileTotals = {
@@ -56,6 +57,12 @@ export type TmxLeaderboardRow = {
   updatedAt: number
 }
 
+// Period leaderboard row = leaderboard row + explicit period cost. costUsd is
+// the PERIOD cost (the rank value); periodCostUsd mirrors it by an explicit name.
+export type TmxPeriodLeaderboardRow = TmxLeaderboardRow & {
+  periodCostUsd: number
+}
+
 const getTmxProfileByNick = makeFunctionReference<'query', { nick: string }, TmxProfile | null>(
   'tables/data_cooked_tmx_profiles:getByNick'
 )
@@ -63,6 +70,12 @@ const getTmxProfileByNick = makeFunctionReference<'query', { nick: string }, Tmx
 const listTmxLeaderboard = makeFunctionReference<'query', { limit?: number }, TmxLeaderboardRow[]>(
   'tables/data_cooked_tmx_profiles:listLeaderboard'
 )
+
+const listTmxLeaderboardByPeriod = makeFunctionReference<
+  'query',
+  { period: string; limit?: number },
+  TmxPeriodLeaderboardRow[]
+>('tables/data_cooked_tmx_profiles:listLeaderboardByPeriod')
 
 export async function loadTmxProfile(nick: string): Promise<TmxProfile | null> {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
@@ -86,6 +99,29 @@ export async function loadTmxLeaderboard(limit?: number): Promise<TmxLeaderboard
     return await convex.query(listTmxLeaderboard, limit === undefined ? {} : { limit })
   } catch (error) {
     console.warn('tmx leaderboard unavailable', error)
+    return []
+  }
+}
+
+/**
+ * Period leaderboard: period = "all" | "YYYY" (year) | "YYYY-MM" (month).
+ * Ranks accounts by the sum of per-day cost falling in that calendar period.
+ */
+export async function loadTmxLeaderboardByPeriod(
+  period: string,
+  limit?: number
+): Promise<TmxPeriodLeaderboardRow[]> {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
+  if (!convexUrl) return []
+
+  try {
+    const convex = new ConvexHttpClient(convexUrl)
+    return await convex.query(
+      listTmxLeaderboardByPeriod,
+      limit === undefined ? { period } : { period, limit }
+    )
+  } catch (error) {
+    console.warn('tmx period leaderboard unavailable', error)
     return []
   }
 }

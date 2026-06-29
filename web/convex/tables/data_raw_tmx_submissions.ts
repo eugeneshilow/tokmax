@@ -8,11 +8,12 @@ import {
   TMX_VALUE_CAP_USD,
   TMX_VALUE_HARD_CAP_USD,
   buildDaily,
+  normalizeNick,
   validateNick,
   vTmxPublishArgs,
   vTmxPublishResult,
 } from '../lib/tmx'
-import { projectTmxProfile } from './data_cooked_tmx_profiles'
+import { projectTmxProfile, projectTmxProfileForAccount } from './data_cooked_tmx_profiles'
 
 const NICK_MAX = 30
 
@@ -28,12 +29,40 @@ export const publish = internalMutation({
   args: vTmxPublishArgs,
   returns: vTmxPublishResult,
   handler: async (ctx, args) => {
-    // 1. Ник: формат + модерация.
-    const nickCheck = validateNick(args.nick)
-    if (!nickCheck.ok) {
-      return { ok: false as const, reason: 'nick_invalid' as const, message: nickCheck.message }
+    const isAccount = args.account_x_user_id !== null
+
+    // 1. Ник.
+    // Account-путь (Sign in with X): identity верифицирована → ник = handle
+    // аккаунта, формат/блок-лист не применяем (handle авторитетен от X).
+    // Legacy-путь: формат + модерация + P2 anti-downgrade (ник, занятый
+    // верифицированным аккаунтом, нельзя писать анонимно).
+    let nick: string
+    if (isAccount) {
+      nick = normalizeNick(args.nick)
+      if (nick.length === 0) {
+        return { ok: false as const, reason: 'nick_invalid' as const, message: 'Пустой handle.' }
+      }
+    } else {
+      const nickCheck = validateNick(args.nick)
+      if (!nickCheck.ok) {
+        return { ok: false as const, reason: 'nick_invalid' as const, message: nickCheck.message }
+      }
+      nick = nickCheck.nick
+
+      // P2 legacy-downgrade: ник, закреплённый за верифицированным X-аккаунтом,
+      // нельзя обновлять анонимной (capability-secret) публикацией.
+      const ownedByAccount = await ctx.db
+        .query('biz_tmx_accounts')
+        .withIndex('by_handle', (q) => q.eq('handle', nick))
+        .unique()
+      if (ownedByAccount) {
+        return {
+          ok: false as const,
+          reason: 'nick_taken' as const,
+          message: 'Этот ник закреплён за верифицированным X-аккаунтом — войди через «Sign in with X».',
+        }
+      }
     }
-    const nick = nickCheck.nick
 
     // 2. $ — авторитетно от клиента (CLI считает по LiteLLM + наша формула).
     // Сервер только хранит. sources/totals приходят готовыми (incl. costUsd).
@@ -132,48 +161,53 @@ export const publish = internalMutation({
       }
     }
 
-    // 3. Capability-token: первая публикация ника создаёт claim; апдейт требует
-    // секрет. Владение по секрету, не по личности.
-    const claim = await ctx.db
-      .query('ops_tmx_claims')
-      .withIndex('by_nick', (q) => q.eq('nick', nick))
-      .unique()
-
+    // 3. Capability-token (ТОЛЬКО legacy-путь): первая публикация ника создаёт
+    // claim; апдейт требует секрет. Владение по секрету, не по личности.
+    // Account-путь пропускает это — владение доказано X identity (token_hash).
     let created = false
-    if (!claim) {
-      await ctx.db.insert('ops_tmx_claims', {
-        nick,
-        secretHash: args.candidateSecretHash,
-        createdAt: now,
-        lastPublishAt: now,
-        publishCount: 1,
-      })
-      created = true
-    } else if (args.providedSecretHash !== claim.secretHash) {
-      // Ник занят другим ключом → предложить свободный вариант.
-      let suggestion = `${nick}-2`.slice(0, NICK_MAX)
-      for (let i = 2; i <= 12; i += 1) {
-        const candidate = `${nick}-${i}`.slice(0, NICK_MAX)
-        const taken = await ctx.db
-          .query('ops_tmx_claims')
-          .withIndex('by_nick', (q) => q.eq('nick', candidate))
-          .unique()
-        if (!taken) {
-          suggestion = candidate
-          break
-        }
-      }
-      return {
-        ok: false as const,
-        reason: 'nick_taken' as const,
-        message: 'Этот ник уже занят другим ключом.',
-        suggestion,
-      }
+    if (isAccount) {
+      // identity-путь: claim не нужен. created=false → http не вернёт secret.
     } else {
-      await ctx.db.patch(claim._id, {
-        lastPublishAt: now,
-        publishCount: claim.publishCount + 1,
-      })
+      const claim = await ctx.db
+        .query('ops_tmx_claims')
+        .withIndex('by_nick', (q) => q.eq('nick', nick))
+        .unique()
+
+      if (!claim) {
+        await ctx.db.insert('ops_tmx_claims', {
+          nick,
+          secretHash: args.candidateSecretHash,
+          createdAt: now,
+          lastPublishAt: now,
+          publishCount: 1,
+        })
+        created = true
+      } else if (args.providedSecretHash !== claim.secretHash) {
+        // Ник занят другим ключом → предложить свободный вариант.
+        let suggestion = `${nick}-2`.slice(0, NICK_MAX)
+        for (let i = 2; i <= 12; i += 1) {
+          const candidate = `${nick}-${i}`.slice(0, NICK_MAX)
+          const taken = await ctx.db
+            .query('ops_tmx_claims')
+            .withIndex('by_nick', (q) => q.eq('nick', candidate))
+            .unique()
+          if (!taken) {
+            suggestion = candidate
+            break
+          }
+        }
+        return {
+          ok: false as const,
+          reason: 'nick_taken' as const,
+          message: 'Этот ник уже занят другим ключом.',
+          suggestion,
+        }
+      } else {
+        await ctx.db.patch(claim._id, {
+          lastPublishAt: now,
+          publishCount: claim.publishCount + 1,
+        })
+      }
     }
 
     // 4. Иммутабельный append (write-once факт).
@@ -192,6 +226,7 @@ export const publish = internalMutation({
       costUsd: totals.costUsd,
       suspicious,
       subscriptionUsd: args.subscriptionUsd,
+      account_x_user_id: args.account_x_user_id ?? undefined,
       insertedAt: now,
     })
 
@@ -204,7 +239,13 @@ export const publish = internalMutation({
     }
 
     // 5. Проекция снапшота профиля.
-    await projectTmxProfile(ctx, nick)
+    // Account-путь: группируем все машины аккаунта по immutable x_user_id (2-я
+    // машина с тем же X-логином авто-сливается без --key). Legacy: по нику.
+    if (isAccount && args.account_x_user_id) {
+      await projectTmxProfileForAccount(ctx, args.account_x_user_id, nick)
+    } else {
+      await projectTmxProfile(ctx, nick)
+    }
 
     return {
       ok: true as const,

@@ -34,12 +34,18 @@ export const tmxSourceFields = {
   costUsd: v.number(),
 }
 
-/** Дневной столбик для графика (токены; $ по дням — V2). */
+/**
+ * Дневной столбик для графика (токены) + per-day API-equivalent $.
+ * costUsd считает клиент (CLI: та же формула, что и период-тотал) и кладёт по
+ * дням — нужно для month/year leaderboards (ранжируем сумму costUsd за период).
+ * Optional: старые публикации без per-day $ остаются валидными (день = $0).
+ */
 export const tmxDailyFields = {
   date: v.string(),
   codexTokens: v.number(),
   claudeTokens: v.number(),
   totalTokens: v.number(),
+  costUsd: v.optional(v.number()),
 }
 
 /** Суммарные токены + API-equivalent $. */
@@ -60,6 +66,8 @@ export const vTmxDailyInput = v.object({
   date: v.string(),
   codexTokens: v.number(),
   claudeTokens: v.number(),
+  // per-day API-equivalent $ (CLI считает). Optional — старые клиенты не шлют.
+  costUsd: v.optional(v.number()),
 })
 
 /** Аргументы internal-мутации publish (http уже посчитал хеши). */
@@ -80,6 +88,11 @@ export const vTmxPublishArgs = {
   ipHash: v.string(),
   providedSecretHash: v.union(v.string(), v.null()),
   candidateSecretHash: v.string(),
+  // "Sign in with X": если публикация авторизована Bearer account-токеном —
+  // immutable x_user_id владельца (http резолвит токен → аккаунт). Тогда путь
+  // идёт по identity (без capability-secret/claim), а ник = handle аккаунта.
+  // null = legacy анонимная публикация (capability-secret).
+  account_x_user_id: v.union(v.string(), v.null()),
   // Опциональная подписка $/мес (из онбординга) для economics-блока профиля.
   subscriptionUsd: v.optional(v.number()),
 }
@@ -309,10 +322,15 @@ export type TmxTotals = {
   costUsd: number
 }
 
-export type TmxDailyInput = { date: string; codexTokens: number; claudeTokens: number }
-export type TmxDaily = TmxDailyInput & { totalTokens: number }
+export type TmxDailyInput = {
+  date: string
+  codexTokens: number
+  claudeTokens: number
+  costUsd?: number
+}
+export type TmxDaily = TmxDailyInput & { totalTokens: number; costUsd: number }
 
-/** Дополняет дневные столбики суммарными токенами и сортирует по дате. */
+/** Дополняет дневные столбики суммарными токенами + per-day $ и сортирует по дате. */
 export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
   return daily
     .map((d) => ({
@@ -320,6 +338,9 @@ export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
       codexTokens: Math.max(0, d.codexTokens),
       claudeTokens: Math.max(0, d.claudeTokens),
       totalTokens: Math.max(0, d.codexTokens) + Math.max(0, d.claudeTokens),
+      // Back-compat: публикация без per-day $ → день стоит $0 (не крашим, просто
+      // не учитывается в period-ранжировании).
+      costUsd: Math.max(0, d.costUsd ?? 0),
     }))
     .sort((a, b) => a.date.localeCompare(b.date))
 }

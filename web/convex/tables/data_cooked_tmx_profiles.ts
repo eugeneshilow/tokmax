@@ -62,11 +62,9 @@ function round2(value: number): number {
 const TMX_PROJECTOR_WINDOW = 60
 
 /**
- * Проектор: иммутабельные публикации ника → mutable снапшот профиля.
- * Берёт ПОСЛЕДНЮЮ публикацию на каждую машину (machineLabel) и суммирует по
- * машинам — мульти-комп (V1, `--key`) ляжет сюда без миграции; для MVP это
- * просто последняя публикация одной машины. Чистый async-хелпер, чтобы его
- * могла звать и мутация publish, и отдельная recomputeProfile.
+ * Проектор (по нику, legacy capability-secret): иммутабельные публикации ника →
+ * mutable снапшот профиля. Берёт ПОСЛЕДНЮЮ публикацию на каждую машину
+ * (machineLabel) и суммирует по машинам.
  */
 export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise<void> {
   // HARDENING #4: ограниченное чтение через compound-индекс [nick, insertedAt]
@@ -76,7 +74,39 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
     .withIndex('by_nick_inserted', (q) => q.eq('nick', nick))
     .order('desc')
     .take(TMX_PROJECTOR_WINDOW)
+  await writeProfileFromRows(ctx, nick, rows, undefined)
+}
 
+/**
+ * Проектор (по аккаунту, Sign in with X): группирует ВСЕ машины аккаунта по
+ * immutable x_user_id и суммирует — 2-я машина с тем же X-логином авто-сливается
+ * без ручного `--key`. Dedup по (account_x_user_id, machine_label). Профиль
+ * пишется под nick=handle.
+ */
+export async function projectTmxProfileForAccount(
+  ctx: MutationCtx,
+  accountXUserId: string,
+  nick: string
+): Promise<void> {
+  const rows = await ctx.db
+    .query('data_raw_tmx_submissions')
+    .withIndex('by_account_inserted', (q) => q.eq('account_x_user_id', accountXUserId))
+    .order('desc')
+    .take(TMX_PROJECTOR_WINDOW)
+  await writeProfileFromRows(ctx, nick, rows, accountXUserId)
+}
+
+/**
+ * Общий сборщик снапшота: дедуп последней публикации на машину, сумма источников
+ * и дней, запись/обновление cooked-профиля под ник. accountXUserId проставляется
+ * в профиль для account-профилей (legacy → undefined).
+ */
+async function writeProfileFromRows(
+  ctx: MutationCtx,
+  nick: string,
+  rows: Doc<'data_raw_tmx_submissions'>[],
+  accountXUserId: string | undefined
+): Promise<void> {
   if (rows.length === 0) {
     const stale = await ctx.db
       .query('data_cooked_tmx_profiles')
@@ -135,20 +165,30 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
   }, emptyTotals())
   totals.costUsd = round2(totals.costUsd)
 
-  // Дни складываем по дате поверх машин.
+  // Дни складываем по дате поверх машин (токены + per-day $ для period-ранков).
   const dailyMap = new Map<string, TmxDaily>()
   for (const machine of latest) {
     for (const d of machine.daily) {
       const cur =
         dailyMap.get(d.date) ??
-        ({ date: d.date, codexTokens: 0, claudeTokens: 0, totalTokens: 0 } satisfies TmxDaily)
+        ({
+          date: d.date,
+          codexTokens: 0,
+          claudeTokens: 0,
+          totalTokens: 0,
+          costUsd: 0,
+        } satisfies TmxDaily)
       cur.codexTokens += d.codexTokens
       cur.claudeTokens += d.claudeTokens
       cur.totalTokens += d.totalTokens
+      // Back-compat: старая публикация без per-day $ → день стоит $0.
+      cur.costUsd += d.costUsd ?? 0
       dailyMap.set(d.date, cur)
     }
   }
-  const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+  const daily = Array.from(dailyMap.values())
+    .map((d) => ({ ...d, costUsd: round2(d.costUsd) }))
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   const machineLabels = latest.map((m) => m.machineLabel).sort((a, b) => a.localeCompare(b))
   const firstDay = latest.reduce(
@@ -182,6 +222,7 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
     cliVersion: newestRow.cliVersion,
     suspicious,
     subscriptionUsd: newestRow.subscriptionUsd,
+    account_x_user_id: accountXUserId,
     updatedAt: now,
   }
 
@@ -246,14 +287,15 @@ export const listLeaderboard = query({
   returns: v.array(vTmxLeaderboardRow),
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 200)
+    // Фильтр suspicious на уровне индекса (eq false), не после take: иначе
+    // suspicious-кластер (топ by_cost_usd) заполняет окно и обнуляет лидерборд.
     const rows = await ctx.db
       .query('data_cooked_tmx_profiles')
-      .withIndex('by_cost_usd')
+      .withIndex('by_suspicious_cost', (q) => q.eq('suspicious', false))
       .order('desc')
-      .take(limit * 2)
+      .take(limit)
 
     return rows
-      .filter((row) => !row.suspicious)
       .slice(0, limit)
       .map((row) => ({
         nick: row.nick,
@@ -263,5 +305,104 @@ export const listLeaderboard = query({
         machineLabels: row.machineLabels,
         updatedAt: row.updatedAt,
       }))
+  },
+})
+
+// ---------------------------------------------------------------------------
+// Month/year leaderboards: ранжируем сумму per-day costUsd за календарный период
+// ---------------------------------------------------------------------------
+
+// Period-ряд = форма listLeaderboard + явное period-поле. costUsd здесь —
+// СТОИМОСТЬ ЗА ПЕРИОД (ranking value), не all-time; totalTokens — токены за тот
+// же период; periodCostUsd дублирует costUsd явным именем для UI.
+const vTmxPeriodLeaderboardRow = v.object({
+  nick: v.string(),
+  costUsd: v.number(),
+  totalTokens: v.number(),
+  lastDay: v.string(),
+  machineLabels: v.array(v.string()),
+  updatedAt: v.number(),
+  periodCostUsd: v.number(),
+})
+
+// Bounded scan: читаем верх профилей по all-time $ через by_cost_usd (desc), и
+// уже в памяти пересчитываем стоимость за период из daily[]. Полностью точного
+// per-period индекса нет (period — произвольный месяц/год), поэтому ограничиваем
+// чтение жёстким потолком вместо неогр. скана всей таблицы. Датасет мал; кап
+// щедрый. Если профилей станет много, эволюция — отдельная period-агрегатная
+// таблица (проектор пишет per-period суммы).
+const TMX_PERIOD_SCAN_CAP = 1000
+
+/** "all" | "YYYY" (год) | "YYYY-MM" (месяц). Невалидное → "all". */
+function normalizePeriod(raw: string): string {
+  if (raw === 'all') return 'all'
+  if (/^\d{4}$/.test(raw)) return raw
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw
+  return 'all'
+}
+
+/** Дата YYYY-MM-DD попадает в период? (год = первые 4, месяц = первые 7). */
+function dateInPeriod(date: string, period: string): boolean {
+  if (period === 'all') return true
+  if (period.length === 4) return date.slice(0, 4) === period
+  return date.slice(0, 7) === period
+}
+
+/**
+ * Leaderboard за календарный период (месяц/год/all-time). Ранжирует по сумме
+ * per-day costUsd, чьи даты попадают в период; suspicious исключены. "all"
+ * берёт all-time costUsd/totalTokens профиля напрямую (back-compat: профили без
+ * per-day $ всё равно ранжируются). Чтение ограничено TMX_PERIOD_SCAN_CAP.
+ */
+export const listLeaderboardByPeriod = query({
+  args: { period: v.string(), limit: v.optional(v.number()) },
+  returns: v.array(vTmxPeriodLeaderboardRow),
+  handler: async (ctx, args) => {
+    const period = normalizePeriod(args.period)
+    const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
+
+    // Фильтр suspicious на уровне индекса (eq false), не после take: иначе
+    // suspicious-кластер заполняет TMX_PERIOD_SCAN_CAP-окно и обнуляет лидерборд.
+    const rows = await ctx.db
+      .query('data_cooked_tmx_profiles')
+      .withIndex('by_suspicious_cost', (q) => q.eq('suspicious', false))
+      .order('desc')
+      .take(TMX_PERIOD_SCAN_CAP)
+
+    const ranked = rows
+      .map((row) => {
+        if (period === 'all') {
+          return {
+            nick: row.nick,
+            costUsd: row.costUsd,
+            totalTokens: row.totalTokens,
+            lastDay: row.lastDay,
+            machineLabels: row.machineLabels,
+            updatedAt: row.updatedAt,
+            periodCostUsd: row.costUsd,
+          }
+        }
+        let costUsd = 0
+        let totalTokens = 0
+        for (const d of row.daily) {
+          if (!dateInPeriod(d.date, period)) continue
+          costUsd += d.costUsd ?? 0
+          totalTokens += d.totalTokens
+        }
+        return {
+          nick: row.nick,
+          costUsd: round2(costUsd),
+          totalTokens,
+          lastDay: row.lastDay,
+          machineLabels: row.machineLabels,
+          updatedAt: row.updatedAt,
+          periodCostUsd: round2(costUsd),
+        }
+      })
+      // Профили без активности в периоде (costUsd == 0) выпадают из ранга.
+      .filter((row) => period === 'all' || row.costUsd > 0)
+      .sort((a, b) => b.costUsd - a.costUsd)
+
+    return ranked.slice(0, limit)
   },
 })

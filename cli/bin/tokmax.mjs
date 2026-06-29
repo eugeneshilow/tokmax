@@ -4,9 +4,13 @@
 // usage, preview the API-equivalent $, and publish the aggregate to the
 // tokenmax leaderboard (tokmax.vibecoding.tech).
 //
-// Two ways to run:
-//   npx tokmax            → short interactive onboarding (2 steps, progress bar)
-//   npx tokmax <nick>     → fast direct path (no prompts)
+// Ways to run:
+//   npx tokmax            → interactive onboarding (Quick anonymous OR Sign in with X)
+//   npx tokmax <nick>     → fast direct anonymous path (no prompts)
+//   npx tokmax login      → Sign in with X (nick = your @handle, multi-machine)
+//   npx tokmax logout     → sign out on this machine (logout --all = every machine)
+//   npx tokmax publish    → non-interactive publish using the saved token (daily job)
+//   npx tokmax daily ...   → on | off | status for the daily auto-update
 //
 // SAFETY INVARIANT: only numeric token aggregates per model + dates leave this
 // machine. Never prompt text, file contents, API keys, or raw log lines.
@@ -20,9 +24,12 @@ import { fileURLToPath } from 'node:url';
 import { scanClaudeCode } from '../src/adapters/claude-code.mjs';
 import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
-import { aggregateSources, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
+import { aggregateSources, aggregateDailyCost, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
-import { loadSecret, saveSecret } from '../src/secrets.mjs';
+import { loadSecret, saveSecret, loadAuth } from '../src/secrets.mjs';
+import { login, logout } from '../src/auth.mjs';
+import { startProgress } from '../src/progress.mjs';
+import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
 
 const DEFAULT_API = 'https://chatty-boar-479.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
@@ -41,6 +48,7 @@ function parseArgs(argv) {
     yes: false,
     onboard: false,
     help: false,
+    bearer: null, // "Sign in with X" account token (set in main if logged in)
   };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
@@ -74,7 +82,7 @@ function parseArgs(argv) {
         break;
       default:
         if (a && a.startsWith('-')) {
-          console.error(`Неизвестный флаг: ${a}`);
+          console.error(`Unknown flag: ${a}`);
           process.exit(2);
         }
         rest.push(a);
@@ -85,21 +93,27 @@ function parseArgs(argv) {
   return opts;
 }
 
-const HELP = `tokmax — публичный счётчик API-equivalent расхода токенов
+const HELP = `tokmax — your public API-equivalent token meter
 
-Запуск:
-  npx tokmax            короткий онбординг (2 шага, прогресс-бар)
-  npx tokmax <nick>     быстрый прямой путь без вопросов
+Run:
+  npx tokmax            interactive onboarding (Quick anonymous OR Sign in with X)
+  npx tokmax <nick>     fast direct anonymous path (no prompts)
+  npx tokmax login      Sign in with X — your nick = your @handle (multi-machine)
+  npx tokmax logout     sign out on this machine (logout --all = every machine)
+  npx tokmax publish    non-interactive publish using the saved token (used by the daily job)
+  npx tokmax daily on   set up the daily auto-update
+  npx tokmax daily off  remove the daily auto-update
+  npx tokmax daily status   show the daily auto-update state
 
 Options:
-  --since YYYY-MM-DD   считать только с этого дня (по умолчанию — вся история)
-  --key <secret>       capability-токен для обновления уже занятого ника
-  --api <baseUrl>      базовый URL API (по умолчанию tokenmax deployment)
-  --machine <label>    метка машины (по умолчанию hostname)
-  --onboard            принудительно запустить онбординг
-  --dry-run            показать превью и тело запроса, ничего не публиковать
-  --yes, -y            не спрашивать подтверждение
-  --help, -h           показать эту справку`;
+  --since YYYY-MM-DD   count only from this day (default: whole history)
+  --key <secret>       capability token to update an already-claimed nick
+  --api <baseUrl>      API base URL (default: tokenmax deployment)
+  --machine <label>    machine label (default: hostname)
+  --onboard            force the onboarding flow
+  --dry-run            print the preview + request body, publish nothing
+  --yes, -y            skip the confirmation prompt
+  --help, -h           show this help`;
 
 function fmtUsd(n) {
   return n.toLocaleString('en-US', {
@@ -140,26 +154,18 @@ function confirm(question) {
     });
     rl.question(question, (answer) => {
       rl.close();
-      resolve(/^(y(es)?|д(а)?)$/i.test(answer.trim()));
+      resolve(/^(y(es)?)$/i.test(answer.trim()));
     });
   });
 }
 
-// ── Onboarding ──────────────────────────────────────────────────────────────
-
-function progressBar(step, total) {
-  const cells = 14;
-  const filled = Math.round((step / total) * cells);
-  return `[${'█'.repeat(filled)}${'░'.repeat(cells - filled)}]  шаг ${step}/${total}`;
-}
-
 function validateNick(raw) {
   const nick = String(raw || '').trim();
-  if (!nick) return { ok: false, msg: 'пустой ник' };
+  if (!nick) return { ok: false, msg: 'empty nick' };
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,31}$/.test(nick)) {
     return {
       ok: false,
-      msg: 'только латиница/цифры/дефис/подчёркивание, 2–32 символа, начинается с буквы или цифры',
+      msg: 'letters/digits/dash/underscore only, 2–32 chars, must start with a letter or digit',
     };
   }
   return { ok: true, nick };
@@ -183,7 +189,20 @@ async function checkAvailability(nick) {
   }
 }
 
-async function runOnboarding(cliVersion) {
+// ── Onboarding ──────────────────────────────────────────────────────────────
+
+/**
+ * Interactive onboarding. First a clear choice — Quick (anonymous) or Sign in
+ * with X — then a "how to count" step. For the X path it runs the real login()
+ * flow and returns the bearer token + handle.
+ *
+ * @returns {Promise<null | {
+ *   mode:'quick'|'x', nick:string|null, since:string|null,
+ *   sources:{claude:boolean,codex:boolean}, subscriptionUsd:number|null,
+ *   bearer?:string, handle?:string
+ * }>}
+ */
+async function runOnboarding(cliVersion, apiBase) {
   // Adaptive input: real terminal → readline; piped (testing/scripting) →
   // pre-buffered lines (readline closes on a piped stream's EOF mid-flow).
   const isTty = Boolean(process.stdin.isTTY);
@@ -199,73 +218,106 @@ async function runOnboarding(cliVersion) {
     process.stdout.write(`${ans}\n`);
     return Promise.resolve(ans);
   };
+
   const config = {
+    mode: 'quick',
     nick: null,
     since: null,
     sources: { claude: true, codex: true },
     subscriptionUsd: null,
+    bearer: undefined,
+    handle: undefined,
   };
-  try {
-    console.log(`\n  tokmax v${cliVersion} — публичный счётчик твоих токенов`);
-    console.log(`  Соберём твою страницу на ${PAGE_BASE.replace('https://', '')}/<ник>.\n`);
 
-    // ── Step 1/2 — ник ──
-    console.log(progressBar(1, 2));
+  try {
+    console.log(`\n  tokmax v${cliVersion} — your public token meter`);
+    console.log(`  We'll build your page at ${PAGE_BASE.replace('https://', '')}/<nick>.\n`);
+
+    // ── Choice: Quick (anonymous) vs Sign in with X ──
+    console.log('How do you want to publish?');
+    console.log('  [1] Quick (anonymous) — pick a nick, compute, publish  (recommended)');
+    console.log('  [2] Sign in with X    — publish under your @handle (identity, multi-machine, daily auto-update)');
+    const choice = (await ask('  choice [1/2, Enter=1]: ')).trim();
+
+    if (choice === '2') {
+      // Sign in with X — run the real login flow. rl must be released first so
+      // the loopback prompts/output do not fight the readline interface.
+      if (rl) rl.close();
+      console.log('');
+      try {
+        const { handle } = await login(apiBase);
+        config.mode = 'x';
+        config.bearer = (await loadAuth())?.token;
+        config.handle = handle || null;
+        config.nick = handle || null;
+        console.log(`\n✓ Signed in as @${handle || '?'} — publishing under this X account.`);
+        console.log('  Second machine with the same login merges automatically (no --key).\n');
+      } catch (err) {
+        console.error(`Sign-in failed: ${err && err.message ? err.message : err}`);
+        return null;
+      }
+      // No further nick step; X path uses default counting (whole history, both
+      // sources). Advanced tuning stays available via flags.
+      return config;
+    }
+
+    // ── Quick (anonymous): pick a nick ──
+    config.mode = 'quick';
     for (;;) {
-      const raw = await ask('Шаг 1/2 · придумай ник: ');
+      const raw = await ask('Pick a nick: ');
       const v = validateNick(raw);
       if (!v.ok) {
         console.log(`  ✗ ${v.msg}\n`);
         continue;
       }
-      process.stdout.write('  проверяю занятость…');
+      const checkP = startProgress(`Checking availability of "${v.nick}"`);
       const avail = await checkAvailability(v.nick.toLowerCase());
-      process.stdout.write('\r\x1b[K');
+      checkP.succeed(
+        avail === 'taken'
+          ? `"${v.nick}" is taken`
+          : avail === 'free'
+            ? `"${v.nick}" is free`
+            : `Checked "${v.nick}"`,
+      );
       if (avail === 'taken') {
         const a = await ask(
-          rl,
-          `  ✗ «${v.nick}» уже занят. [д] это мой — обновить · [Enter] выбрать другой: `,
+          `  "${v.nick}" is taken. [y] it's mine — update it · [Enter] choose another: `,
         );
-        if (/^(д(а)?|y(es)?)$/i.test(a.trim())) {
+        if (/^(y(es)?)$/i.test(a.trim())) {
           config.nick = v.nick;
           break;
         }
         console.log('');
         continue;
       }
-      console.log(avail === 'free' ? `  ✓ «${v.nick}» свободен\n` : `  · беру «${v.nick}»\n`);
       config.nick = v.nick;
       break;
     }
 
-    // ── Step 2/2 — режим ──
-    console.log(progressBar(2, 2));
-    console.log('Шаг 2/2 · как считать?');
-    console.log('  [1] По умолчанию — вся история, Codex + Claude Code  (рекомендую)');
-    console.log('  [2] Настроить — период, источники, подписка');
-    const mode = (await ask('  выбор [1/2, Enter=1]: ')).trim();
+    // ── How to count? ──
+    console.log('\nHow should we count?');
+    console.log('  [1] Default — whole history, Codex + Claude Code  (recommended)');
+    console.log('  [2] Customize — period, sources, subscription');
+    const mode = (await ask('  choice [1/2, Enter=1]: ')).trim();
 
     if (mode === '2') {
-      // период
       for (;;) {
-        const s = (await ask('  период — с какой даты? (YYYY-MM-DD, Enter = вся история): ')).trim();
+        const s = (await ask('  period — from which date? (YYYY-MM-DD, Enter = whole history): ')).trim();
         if (!s) break;
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
           config.since = s;
           break;
         }
-        console.log('  ✗ формат YYYY-MM-DD');
+        console.log('  ✗ format is YYYY-MM-DD');
       }
-      // источники
       const src = (
-        await ask('  источники — [Enter] оба · [c] только Claude Code · [x] только Codex: ')
+        await ask('  sources — [Enter] both · [c] Claude Code only · [x] Codex only: ')
       )
         .trim()
         .toLowerCase();
       if (src === 'c') config.sources = { claude: true, codex: false };
       else if (src === 'x') config.sources = { claude: false, codex: true };
-      // подписка
-      const sub = (await ask('  сколько платишь за подписки в месяц, $? (Enter = пропустить): ')).trim();
+      const sub = (await ask('  how much do you pay for subscriptions per month, $? (Enter = skip): ')).trim();
       const n = Number(sub.replace(/[^0-9.]/g, ''));
       if (Number.isFinite(n) && n > 0) config.subscriptionUsd = n;
     }
@@ -276,96 +328,161 @@ async function runOnboarding(cliVersion) {
   return config;
 }
 
-// ── Main ────────────────────────────────────────────────────────────────────
+// ── Subcommands ───────────────────────────────────────────────────────────────
 
-async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+function resolveApiBase(rawArgs) {
+  const i = rawArgs.indexOf('--api');
+  if (i >= 0 && rawArgs[i + 1]) return rawArgs[i + 1].replace(/\/+$/, '');
+  return DEFAULT_API;
+}
 
-  if (opts.help) {
-    console.log(HELP);
+async function loginCmd(apiBase) {
+  console.log('tokmax · Sign in with X');
+  try {
+    const { handle, file } = await login(apiBase);
+    console.log(`\n✓ Signed in as @${handle || '?'}`);
+    console.log(`Token saved: ${file} (chmod 600).`);
+    console.log(
+      'Now `npx tokmax` publishes under this X account — a second machine with the same login merges automatically (no --key).',
+    );
+    return 0;
+  } catch (err) {
+    console.error(`Sign-in failed: ${err && err.message ? err.message : err}`);
+    return 1;
+  }
+}
+
+async function logoutCmd(rawArgs, apiBase) {
+  const all = rawArgs.includes('--all');
+  const auth = await loadAuth();
+  if (!auth) {
+    console.log('Not signed in — nothing to remove.');
     return 0;
   }
+  await logout(apiBase, auth.token, all);
+  if (all) {
+    console.log(`Signed out${auth.handle ? ` (@${auth.handle})` : ''} on EVERY machine. All tokens revoked.`);
+  } else {
+    console.log(`Signed out${auth.handle ? ` (@${auth.handle})` : ''} on this machine. Local token removed.`);
+  }
+  return 0;
+}
 
-  const cliVersion = await readPackageVersion();
-
-  // No nick + interactive terminal (or --onboard) → run the onboarding.
-  if (opts.onboard || (!opts.nick && process.stdin.isTTY)) {
-    const cfg = await runOnboarding(cliVersion);
-    if (!cfg.nick) {
-      console.error('Онбординг отменён.');
+async function dailyCmd(rawArgs) {
+  const sub = (rawArgs[1] || '').toLowerCase();
+  if (sub === 'on') {
+    const auth = await loadAuth();
+    if (!auth) {
+      console.log('Daily auto-update needs a saved sign-in. Run `npx tokmax login` first.');
       return 1;
     }
-    opts.nick = cfg.nick;
-    opts.since = cfg.since;
-    opts.sources = cfg.sources;
-    opts.subscriptionUsd = cfg.subscriptionUsd;
+    const res = await installDaily();
+    if (!res.ok) {
+      console.error(`Could not set up the daily auto-update: ${res.detail || 'unknown error'}`);
+      return 1;
+    }
+    const at = `${String(res.time.hour).padStart(2, '0')}:${String(res.time.minute).padStart(2, '0')}`;
+    console.log(`✓ Daily auto-update is on (${res.platform}). It runs every day around ${at}.`);
+    console.log('  The job reads your saved token at runtime — the schedule never stores it.');
+    return 0;
   }
+  if (sub === 'off') {
+    const res = await removeDaily();
+    console.log(res.removed ? '✓ Daily auto-update removed.' : 'Daily auto-update was not set up.');
+    return 0;
+  }
+  if (sub === 'status') {
+    const s = await dailyStatus();
+    console.log(`Daily auto-update (${s.platform}): ${s.installed ? 'installed' : 'not installed'}${
+      s.installed ? (s.active ? ' · active' : ' · inactive') : ''
+    }`);
+    console.log(`  token file: ${s.authFile}`);
+    console.log(`  log file:   ${s.logFile}`);
+    return 0;
+  }
+  console.log('Usage: npx tokmax daily on | off | status');
+  return 2;
+}
 
-  if (!opts.nick) {
-    console.error('Укажи ник: npx tokmax <nick>  (или запусти npx tokmax без аргументов)');
-    return 2;
-  }
-  if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
-    console.error(`--since должен быть YYYY-MM-DD, получено: ${opts.since}`);
-    return 2;
-  }
+// ── Core pipeline (scan → compute → publish) ──────────────────────────────────
 
-  const nick = opts.nick.trim();
+/**
+ * Run the full scan → compute → publish pipeline with progress bars.
+ * @returns {Promise<{ code:number, published:boolean }>}
+ */
+async function runPipeline(opts, cliVersion, { interactive }) {
+  const nick = (opts.nick || '').trim();
   const nickKey = nick.toLowerCase();
 
-  console.log(`tokmax v${cliVersion} · ник: ${nick}`);
-  console.log('Сканирую локальные логи…');
+  console.log(`tokmax v${cliVersion} · nick: ${nick}${opts.bearer ? ' (via X)' : ''}`);
 
+  // 1. Scan local logs (with progress).
   const sources = opts.sources || { claude: true, codex: true };
+  const total = (sources.claude ? 1 : 0) + (sources.codex ? 1 : 0);
+  if (!total) {
+    console.error('No sources selected.');
+    return { code: 1, published: false };
+  }
+  const scanP = startProgress('Scanning local Codex + Claude Code logs');
+  let done = 0;
+  const tick = () => scanP.update((++done / total) * 100);
   const tasks = [];
-  if (sources.claude) tasks.push(scanClaudeCode().then((r) => ({ tool: 'claude', r })));
-  if (sources.codex) tasks.push(scanCodex().then((r) => ({ tool: 'codex', r })));
-  if (!tasks.length) {
-    console.error('Не выбрано ни одного источника.');
-    return 1;
+  if (sources.claude)
+    tasks.push(scanClaudeCode().then((r) => (tick(), { tool: 'claude', r })));
+  if (sources.codex) tasks.push(scanCodex().then((r) => (tick(), { tool: 'codex', r })));
+  let wrapped;
+  try {
+    wrapped = await Promise.all(tasks);
+  } catch (err) {
+    scanP.fail('Scanning failed');
+    throw err;
   }
-  const wrapped = await Promise.all(tasks);
   const scanned = wrapped.map((w) => w.r);
-  console.log(
-    '  ' +
-      wrapped
-        .map((w) =>
-          w.tool === 'claude'
-            ? `Claude Code: ${w.r.sessionCount} сессий`
-            : `Codex: ${w.r.sessionCount} сессий`,
-        )
-        .join(' · '),
-  );
+  const scanSummary = wrapped
+    .map((w) =>
+      w.tool === 'claude'
+        ? `Claude Code: ${w.r.sessionCount} sessions`
+        : `Codex: ${w.r.sessionCount} sessions`,
+    )
+    .join(' · ');
+  scanP.succeed(`Scanned local logs — ${scanSummary}`);
 
+  // 2. Aggregate + compute the API-equivalent $ (with progress).
+  const computeP = startProgress('Computing the API-equivalent');
+  computeP.update(20);
   const agg = aggregate(scanned, { since: opts.since });
-
   if (!agg.models.length || agg.totalTokens === 0) {
-    console.error(
-      'Не нашёл токенов в логах (с учётом фильтров). Публиковать нечего.',
-    );
-    return 1;
+    computeP.fail('No tokens found in the logs (after filters) — nothing to publish');
+    return { code: 1, published: false };
   }
-
+  computeP.update(55);
   // Prices come from the bundled LiteLLM snapshot + our override map; the CLI
   // computes $ locally (offline) and CARRIES it in the publish payload.
   const rateMap = await buildRateMap();
+  computeP.update(85);
   const { sources: costSources, totals } = aggregateSources(agg.models, rateMap);
   const usd = totals.costUsd;
+  // Per-day costUsd (same formula as the period total) → attach to each
+  // token-only daily[] entry so the server can rank by calendar period
+  // (month/year leaderboards).
+  const dailyCost = aggregateDailyCost(agg.dailyModels, rateMap);
+  const daily = agg.daily.map((d) => ({ ...d, costUsd: dailyCost.get(d.date) ?? 0 }));
+  computeP.update(100);
+  computeP.succeed(`Computed API-equivalent: $${fmtUsd(usd)}`);
 
   console.log(
-    `Период: ${agg.firstDay} → ${agg.lastDay}` +
-      (opts.since ? ` · фильтр с ${opts.since}` : ' (всё, что нашлось)'),
+    `Period: ${agg.firstDay} → ${agg.lastDay}` +
+      (opts.since ? ` · filtered from ${opts.since}` : ' (everything found)'),
   );
-  console.log('Модели:');
+  console.log('Models:');
   for (const m of agg.models) {
     const tot = m.input + m.output + m.cacheCreate + m.cacheRead + m.reasoning;
-    console.log(`  ${m.tool}/${m.model}: ${fmtInt(tot)} токенов`);
+    console.log(`  ${m.tool}/${m.model}: ${fmtInt(tot)} tokens`);
   }
-  console.log(`Всего токенов: ${fmtInt(agg.totalTokens)}`);
+  console.log(`Total tokens: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
   console.log(ATTRIBUTION);
 
-  // Subscription comparison (CLI-side preview of the flex).
   if (opts.subscriptionUsd && agg.firstDay && agg.lastDay) {
     const days = Math.max(
       1,
@@ -375,106 +492,220 @@ async function main() {
     const subTotal = opts.subscriptionUsd * months;
     const ratio = subTotal > 0 ? usd / subTotal : 0;
     console.log(
-      `Подписка: $${fmtUsd(opts.subscriptionUsd)}/мес × ${months.toFixed(1)} мес ≈ $${fmtUsd(subTotal)} → ` +
-        `API-equivalent отбил подписку в ${ratio.toFixed(1)}×`,
+      `Subscription: $${fmtUsd(opts.subscriptionUsd)}/mo × ${months.toFixed(1)} mo ≈ $${fmtUsd(subTotal)} → ` +
+        `API-equivalent beat the subscription by ${ratio.toFixed(1)}×`,
     );
   }
 
-  console.log('Наружу уйдёт только агрегат (числа), не логи и не ключи.');
+  console.log('Only the aggregate (numbers) leaves this machine — never logs or keys.');
 
   const body = {
     nick,
     cliVersion,
-    // LiteLLM snapshot date — the rate vintage this $ was computed against.
     pricingVersion: rateMap.version,
     firstDay: agg.firstDay,
     lastDay: agg.lastDay,
     machineLabel: opts.machine,
-    models: agg.models, // token-only buckets
-    sources: costSources, // per-source aggregates, each carrying costUsd
-    totals, // grand totals, carrying costUsd
-    daily: agg.daily,
+    models: agg.models,
+    sources: costSources,
+    totals,
+    daily,
     ...(opts.subscriptionUsd ? { subscriptionUsd: opts.subscriptionUsd } : {}),
   };
 
   if (opts.dryRun) {
-    console.log('\n--dry-run: тело запроса, которое было бы отправлено:');
+    console.log('\n--dry-run: request body that would have been sent:');
     console.log(JSON.stringify(body, null, 2));
-    console.log('\n(ничего не опубликовано)');
-    return 0;
+    console.log('\n(nothing published)');
+    return { code: 0, published: false };
   }
 
-  // Capability token: explicit --key wins, else a saved secret for this nick.
-  const savedSecret = await loadSecret(nickKey);
-  const secret = opts.key || savedSecret;
-  if (secret) body.secret = secret;
+  // "Sign in with X": the account token (bearer) authorizes the publish and the
+  // server uses the X handle as the nick. Otherwise fall back to the legacy
+  // capability token (explicit --key wins, else a saved secret for this nick).
+  if (!opts.bearer) {
+    const savedSecret = await loadSecret(nickKey);
+    const secret = opts.key || savedSecret;
+    if (secret) body.secret = secret;
+  }
 
-  if (!opts.yes) {
-    const ok = await confirm(`Опубликовать как ${nick}? [y/N] `);
+  if (interactive && !opts.yes) {
+    const who = opts.bearer ? `@${nick} (via X)` : nick;
+    const ok = await confirm(`Publish as ${who}? [y/N] `);
     if (!ok) {
-      console.log('Отменено.');
-      return 0;
+      console.log('Cancelled.');
+      return { code: 0, published: false };
     }
   }
 
-  const { status, json } = await publish(opts.api, body);
+  const pubP = startProgress(`Publishing as ${opts.bearer ? `@${nick} (via X)` : nick}`);
+  const { status, json } = await publish(opts.api, body, opts.bearer);
 
   if (!json) {
-    console.error(`Неожиданный ответ сервера: HTTP ${status}`);
-    return 1;
+    pubP.fail(`Unexpected server response: HTTP ${status}`);
+    return { code: 1, published: false };
   }
 
   if (json.ok) {
-    if (json.created && json.secret) {
+    pubP.succeed('Published');
+    if (opts.bearer) {
+      console.log(`\nPublished under X account @${json.nick || nick}.`);
+    } else if (json.created && json.secret) {
       const file = await saveSecret(nickKey, {
         nick: json.nick || nickKey,
         secret: json.secret,
         url: json.url,
         createdAt: Date.now(),
       });
-      console.log(`\nСохранил capability-токен: ${file} (chmod 600)`);
-      console.log('Не теряй его — он нужен для будущих обновлений ника.');
+      console.log(`\nSaved your capability token: ${file} (chmod 600)`);
+      console.log("Keep it — it's required to update this nick later.");
     } else {
-      console.log('\nОбновил существующий профиль.');
+      console.log('\nUpdated your existing profile.');
     }
-    console.log(`costUsd: $${fmtUsd(json.costUsd)} · токенов: ${fmtInt(json.totalTokens)}`);
+    console.log(`costUsd: $${fmtUsd(json.costUsd)} · tokens: ${fmtInt(json.totalTokens)}`);
     if (json.suspicious) {
-      console.log('⚠️  Сервер пометил сабмит как suspicious (на ручную проверку).');
+      console.log('⚠️  The server flagged this submission as suspicious (manual review).');
     }
-    console.log(`\n  Готово! Твоя страница: ${json.url}\n`);
-    return 0;
+    console.log(`\n  Done! Your page: ${json.url}\n`);
+    return { code: 0, published: true };
   }
 
   // Documented error reasons.
+  pubP.fail('Publish failed');
   switch (json.reason) {
     case 'nick_taken':
-      console.error(`Ник занят: ${json.message || nick}`);
-      if (json.suggestion) console.error(`Попробуй: ${json.suggestion}`);
-      console.error(
-        'Если это твой ник — обнови через --key <secret> (capability-токен).',
-      );
-      return 1;
+      console.error(`Nick taken: ${json.message || nick}`);
+      if (json.suggestion) console.error(`Try: ${json.suggestion}`);
+      console.error('If this nick is yours, update it with --key <secret> (capability token).');
+      return { code: 1, published: false };
     case 'rate_limited':
-      console.error(`Слишком часто: ${json.message || 'rate limited'}`);
-      return 1;
+      console.error(`Too frequent: ${json.message || 'rate limited'}`);
+      return { code: 1, published: false };
     case 'nick_invalid':
-      console.error(`Недопустимый ник: ${json.message || nick}`);
-      return 1;
+      console.error(`Invalid nick: ${json.message || nick}`);
+      return { code: 1, published: false };
     case 'empty_usage':
-      console.error('Сервер: пустой агрегат (empty_usage).');
-      return 1;
+      console.error('Server: empty aggregate (empty_usage).');
+      return { code: 1, published: false };
     case 'invalid_payload':
-      console.error(`Некорректное тело запроса: ${json.message || ''}`);
-      return 1;
+      console.error(`Invalid request body: ${json.message || ''}`);
+      return { code: 1, published: false };
+    case 'unauthorized':
+      console.error('Your X token is invalid or revoked. Sign in again: npx tokmax login');
+      return { code: 1, published: false };
     default:
-      console.error(`Ошибка публикации (HTTP ${status}): ${JSON.stringify(json)}`);
-      return 1;
+      console.error(`Publish error (HTTP ${status}): ${JSON.stringify(json)}`);
+      return { code: 1, published: false };
   }
+}
+
+/** Offer the daily auto-update after a successful interactive publish. */
+async function offerDaily() {
+  const status = await dailyStatus();
+  if (status.installed) return;
+  const yes = await confirm(
+    'Set up a daily auto-update? Keeps your number fresh on the leaderboard. [y/N] ',
+  );
+  if (!yes) return;
+  const res = await installDaily();
+  if (!res.ok) {
+    console.error(`Could not set up the daily auto-update: ${res.detail || 'unknown error'}`);
+    return;
+  }
+  const at = `${String(res.time.hour).padStart(2, '0')}:${String(res.time.minute).padStart(2, '0')}`;
+  console.log(`✓ Daily auto-update is on (${res.platform}). It runs every day around ${at}.`);
+  console.log('  Turn it off any time with: npx tokmax daily off');
+}
+
+// ── Non-interactive publish (used by the daily job) ───────────────────────────
+
+async function publishCmd(rawArgs) {
+  const opts = parseArgs(rawArgs);
+  const cliVersion = await readPackageVersion();
+  // The daily run MUST have a saved token; otherwise skip + log (don't fail).
+  const auth = await loadAuth();
+  if (!auth) {
+    console.error(
+      '[tokmax daily] No saved auth token (~/.config/tokenmax/auth.json) — run `npx tokmax login` first. Skipping this run.',
+    );
+    return 0;
+  }
+  opts.bearer = auth.token;
+  opts.nick = auth.handle || 'me';
+  opts.yes = true;
+  opts.sources = opts.sources || { claude: true, codex: true };
+  const { code } = await runPipeline(opts, cliVersion, { interactive: false });
+  return code;
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const rawArgs = process.argv.slice(2);
+
+  // Subcommands are intercepted before nick parsing (else "login" would be read
+  // as a nick).
+  if (rawArgs[0] === 'login') return loginCmd(resolveApiBase(rawArgs));
+  if (rawArgs[0] === 'logout') return logoutCmd(rawArgs, resolveApiBase(rawArgs));
+  if (rawArgs[0] === 'daily') return dailyCmd(rawArgs);
+  if (rawArgs[0] === 'publish') return publishCmd(rawArgs.slice(1));
+
+  const opts = parseArgs(rawArgs);
+
+  if (opts.help) {
+    console.log(HELP);
+    return 0;
+  }
+
+  const cliVersion = await readPackageVersion();
+
+  // "Sign in with X": if already logged in, publish under the X handle (bearer).
+  // First-run `npx tokmax` WITHOUT login keeps the legacy nick+capability path.
+  const auth = await loadAuth();
+  if (auth) {
+    opts.bearer = auth.token;
+    if (!opts.nick) opts.nick = auth.handle || null;
+  }
+
+  // No nick + interactive terminal (or --onboard) → run the onboarding. When
+  // already signed in we skip onboarding (the handle is the nick).
+  if (!opts.bearer && (opts.onboard || (!opts.nick && process.stdin.isTTY))) {
+    const cfg = await runOnboarding(cliVersion, opts.api);
+    if (!cfg || !cfg.nick) {
+      console.error('Onboarding cancelled.');
+      return 1;
+    }
+    opts.nick = cfg.nick;
+    opts.since = cfg.since;
+    opts.sources = cfg.sources;
+    opts.subscriptionUsd = cfg.subscriptionUsd;
+    if (cfg.mode === 'x' && cfg.bearer) opts.bearer = cfg.bearer;
+  }
+
+  if (!opts.nick) {
+    console.error('Provide a nick: npx tokmax <nick>  (or run npx tokmax with no arguments)');
+    return 2;
+  }
+  if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
+    console.error(`--since must be YYYY-MM-DD, got: ${opts.since}`);
+    return 2;
+  }
+
+  const interactive = Boolean(process.stdin.isTTY);
+  const { code, published } = await runPipeline(opts, cliVersion, { interactive });
+
+  // Offer the daily auto-update after a successful publish — especially when
+  // signed in (the daily job needs the saved token).
+  if (published && interactive && opts.bearer) {
+    await offerDaily();
+  }
+
+  return code;
 }
 
 main()
   .then((code) => process.exit(code || 0))
   .catch((err) => {
-    console.error(`Сбой: ${err && err.stack ? err.stack : err}`);
+    console.error(`Failure: ${err && err.stack ? err.stack : err}`);
     process.exit(1);
   });

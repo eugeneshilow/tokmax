@@ -126,6 +126,33 @@ export function costForModel(rates, tok) {
   );
 }
 
+/**
+ * Per-day costUsd, priced with the SAME per-model formula as the period total.
+ * Input is aggregate()'s dailyModels — one entry per calendar day carrying that
+ * day's per-model token buckets. Returns a date -> costUsd (round2) map so the
+ * caller can attach costUsd to each token-only daily[] entry of the payload.
+ *
+ * @param {Array<{date:string, models:Array<object>}>} dailyModels
+ * @returns {Map<string, number>}
+ */
+export function aggregateDailyCost(dailyModels, rateMap) {
+  const byDate = new Map();
+  for (const day of dailyModels) {
+    let usd = 0;
+    for (const m of day.models) {
+      usd += costForModel(resolveRates(rateMap, m.model), {
+        input: Math.max(0, m.input),
+        output: Math.max(0, m.output),
+        cacheCreate: Math.max(0, m.cacheCreate),
+        cacheRead: Math.max(0, m.cacheRead),
+        reasoning: Math.max(0, m.reasoning),
+      });
+    }
+    byDate.set(day.date, round2(usd));
+  }
+  return byDate;
+}
+
 /** Sum costUsd across all aggregated model buckets (display convenience). */
 export function previewCost(rateMap, models) {
   let usd = 0;
