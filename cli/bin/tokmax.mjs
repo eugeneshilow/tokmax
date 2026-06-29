@@ -236,7 +236,9 @@ async function runOnboarding(cliVersion, apiBase) {
     // ── Choice: Quick (anonymous) vs Sign in with X ──
     console.log('How do you want to publish?');
     console.log('  [1] Quick (anonymous) — pick a nick, compute, publish  (recommended)');
-    console.log('  [2] Sign in with X    — publish under your @handle (identity, multi-machine, daily auto-update)');
+    console.log('  [2] Sign in with X    — your tokmax nick becomes your @handle (identity, multi-machine, daily auto-update)');
+    console.log('      Sign-in only READS your @handle to label your page. tokmax never posts to X,');
+    console.log('      never tweets for you, never reads your tweets or DMs.');
     const choice = (await ask('  choice [1/2, Enter=1]: ')).trim();
 
     if (choice === '2') {
@@ -250,7 +252,7 @@ async function runOnboarding(cliVersion, apiBase) {
         config.bearer = (await loadAuth())?.token;
         config.handle = handle || null;
         config.nick = handle || null;
-        console.log(`\n✓ Signed in as @${handle || '?'} — publishing under this X account.`);
+        console.log(`\n✓ Signed in as @${handle || '?'} — your tokmax page will use this @handle.`);
         console.log('  Second machine with the same login merges automatically (no --key).\n');
       } catch (err) {
         console.error(`Sign-in failed: ${err && err.message ? err.message : err}`);
@@ -343,7 +345,7 @@ async function loginCmd(apiBase) {
     console.log(`\n✓ Signed in as @${handle || '?'}`);
     console.log(`Token saved: ${file} (chmod 600).`);
     console.log(
-      'Now `npx tokmax` publishes under this X account — a second machine with the same login merges automatically (no --key).',
+      'Now `npx tokmax` updates your tokmax page as your @handle — a second machine with the same login merges automatically (no --key). Read-only: nothing is ever posted to X.',
     );
     return 0;
   } catch (err) {
@@ -549,7 +551,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   if (json.ok) {
     pubP.succeed('Published');
     if (opts.bearer) {
-      console.log(`\nPublished under X account @${json.nick || nick}.`);
+      console.log(`\nPublished to your tokmax page as @${json.nick || nick}.`);
     } else if (json.created && json.secret) {
       const file = await saveSecret(nickKey, {
         nick: json.nick || nickKey,
