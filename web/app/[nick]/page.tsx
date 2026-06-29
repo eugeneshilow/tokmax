@@ -354,7 +354,8 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               }
             />
             <div className="mt-4 grid gap-2">
-              {profile.daily.map((day) => (
+              {/* Новые дни сверху: проектор хранит daily по возрастанию даты — реверсим. */}
+              {[...profile.daily].reverse().map((day) => (
                 <DailyBar key={day.date} day={day} max={maxDailyTokens} />
               ))}
             </div>
