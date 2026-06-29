@@ -26,6 +26,9 @@ const vTmxProfilePublic = v.object({
   cliVersion: v.string(),
   suspicious: v.boolean(),
   subscriptionUsd: v.optional(v.number()),
+  avatar_url: v.optional(v.string()),
+  name: v.optional(v.string()),
+  verified: v.optional(v.boolean()),
   firstSeenAt: v.number(),
   updatedAt: v.number(),
 })
@@ -37,6 +40,8 @@ const vTmxLeaderboardRow = v.object({
   lastDay: v.string(),
   machineLabels: v.array(v.string()),
   updatedAt: v.number(),
+  avatar_url: v.optional(v.string()),
+  verified: v.optional(v.boolean()),
 })
 
 function emptyTotals(): TmxTotals {
@@ -205,6 +210,23 @@ async function writeProfileFromRows(
   const suspicious = latest.some((m) => m.suspicious) || totals.costUsd > TMX_VALUE_CAP_USD
   const now = Date.now()
 
+  // X-display: для account-профиля зеркалим avatar/name из biz_tmx_accounts и
+  // помечаем verified. Legacy (без аккаунта) — поля пусты, verified:false.
+  let avatarUrl: string | undefined
+  let accountName: string | undefined
+  let verified = false
+  if (accountXUserId) {
+    verified = true
+    const account = await ctx.db
+      .query('biz_tmx_accounts')
+      .withIndex('by_x_user_id', (q) => q.eq('x_user_id', accountXUserId))
+      .unique()
+    if (account) {
+      avatarUrl = account.avatar_url
+      accountName = account.name
+    }
+  }
+
   const doc = {
     nick,
     firstDay,
@@ -223,6 +245,9 @@ async function writeProfileFromRows(
     suspicious,
     subscriptionUsd: newestRow.subscriptionUsd,
     account_x_user_id: accountXUserId,
+    avatar_url: avatarUrl,
+    name: accountName,
+    verified,
     updatedAt: now,
   }
 
@@ -275,6 +300,9 @@ export const getByNick = query({
       cliVersion: profile.cliVersion,
       suspicious: profile.suspicious,
       subscriptionUsd: profile.subscriptionUsd,
+      avatar_url: profile.avatar_url,
+      name: profile.name,
+      verified: profile.verified,
       firstSeenAt: profile.firstSeenAt,
       updatedAt: profile.updatedAt,
     }
@@ -304,6 +332,8 @@ export const listLeaderboard = query({
         lastDay: row.lastDay,
         machineLabels: row.machineLabels,
         updatedAt: row.updatedAt,
+        avatar_url: row.avatar_url,
+        verified: row.verified,
       }))
   },
 })
@@ -323,6 +353,8 @@ const vTmxPeriodLeaderboardRow = v.object({
   machineLabels: v.array(v.string()),
   updatedAt: v.number(),
   periodCostUsd: v.number(),
+  avatar_url: v.optional(v.string()),
+  verified: v.optional(v.boolean()),
 })
 
 // Bounded scan: читаем верх профилей по all-time $ через by_cost_usd (desc), и
@@ -380,23 +412,33 @@ export const listLeaderboardByPeriod = query({
             machineLabels: row.machineLabels,
             updatedAt: row.updatedAt,
             periodCostUsd: row.costUsd,
+            avatar_url: row.avatar_url,
+            verified: row.verified,
           }
         }
+        // Back-compat: профили, опубликованные ДО появления per-day $, имеют дни
+        // с токенами, но без costUsd → их период-сумма падала в 0 и фильтр ниже
+        // их выкидывал. Оцениваем недостающую per-day стоимость пропорционально
+        // токенам по blended-ставке профиля (all-time $ ÷ all-time tokens).
+        const blendedRate = row.totalTokens > 0 ? row.costUsd / row.totalTokens : 0
         let costUsd = 0
         let totalTokens = 0
         for (const d of row.daily) {
           if (!dateInPeriod(d.date, period)) continue
-          costUsd += d.costUsd ?? 0
+          costUsd += d.costUsd ?? d.totalTokens * blendedRate
           totalTokens += d.totalTokens
         }
+        const periodCostUsd = round2(costUsd)
         return {
           nick: row.nick,
-          costUsd: round2(costUsd),
+          costUsd: periodCostUsd,
           totalTokens,
           lastDay: row.lastDay,
           machineLabels: row.machineLabels,
           updatedAt: row.updatedAt,
-          periodCostUsd: round2(costUsd),
+          periodCostUsd,
+          avatar_url: row.avatar_url,
+          verified: row.verified,
         }
       })
       // Профили без активности в периоде (costUsd == 0) выпадают из ранга.

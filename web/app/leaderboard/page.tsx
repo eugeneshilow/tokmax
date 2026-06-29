@@ -188,10 +188,22 @@ export default async function TmxLeaderboardPage({
                         {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
                       </td>
                       <td className="px-4 py-4 font-black">
-                        <Link href={`/${row.nick}`} className="inline-flex items-center gap-1 hover:text-[#FF7A1A]">
-                          {row.nick}
-                          <ArrowUpRight className="h-3.5 w-3.5 opacity-50" />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          {row.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={row.avatar_url.replace('_normal', '_400x400')}
+                              alt={row.nick}
+                              width={26}
+                              height={26}
+                              className="h-[26px] w-[26px] shrink-0 rounded-full border border-[#D2D2D7] object-cover"
+                            />
+                          ) : null}
+                          <Link href={`/${row.nick}`} className="inline-flex items-center gap-1 hover:text-[#FF7A1A]">
+                            {row.nick}
+                            <ArrowUpRight className="h-3.5 w-3.5 opacity-50" />
+                          </Link>
+                        </div>
                       </td>
                       <td className="px-4 py-4 text-right font-black text-[#FF7A1A]" title={formatUsdPrecise(row.costUsd)}>
                         {formatUsd(row.costUsd)}

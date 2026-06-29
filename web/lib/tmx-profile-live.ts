@@ -44,6 +44,8 @@ export type TmxProfile = {
   cliVersion: string
   suspicious: boolean
   subscriptionUsd?: number
+  avatar_url?: string | null
+  verified?: boolean
   firstSeenAt: number
   updatedAt: number
 }
@@ -55,6 +57,8 @@ export type TmxLeaderboardRow = {
   lastDay: string
   machineLabels: string[]
   updatedAt: number
+  avatar_url?: string | null
+  verified?: boolean
 }
 
 // Period leaderboard row = leaderboard row + explicit period cost. costUsd is

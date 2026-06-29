@@ -62,6 +62,12 @@ export default defineSchema({
     // X-auth: профиль ника, собранный из публикаций верифицированного аккаунта.
     // Пусто для legacy-профилей (capability-secret).
     account_x_user_id: v.optional(v.string()),
+    // X-display: зеркало biz_tmx_accounts (avatar/name) + verified-флаг. Берётся
+    // из аккаунта при проекции account-профиля; legacy-профили оставляют пусто /
+    // verified:false.
+    avatar_url: v.optional(v.string()),
+    name: v.optional(v.string()),
+    verified: v.optional(v.boolean()),
     firstSeenAt: v.number(),
     updatedAt: v.number(),
   })
