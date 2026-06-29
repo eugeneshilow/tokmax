@@ -1,116 +1,115 @@
 # tokmax
 
-Считает, сколько токенов ты сжёг в **Codex** и **Claude Code** на этой машине,
-переводит это в **API-equivalent** доллары и публикует агрегат на публичный
-лидерборд [tokmax.vibecoding.tech](https://tokmax.vibecoding.tech).
+Measures how many tokens you burned in **Codex** and **Claude Code** on this
+machine, converts that into **API-equivalent** dollars, and publishes the
+aggregate to the public leaderboard at
+[tokmax.vibecoding.tech](https://tokmax.vibecoding.tech).
 
-Одной командой — короткий онбординг (2 шага с прогресс-баром: ник → как считать):
+One command — a short onboarding with a progress bar:
 
 ```bash
 npx tokmax
 ```
 
-Или сразу с ником, без вопросов: `npx tokmax <nick>`. После публикации твой
-профиль виден на `https://tokmax.vibecoding.tech/<nick>`.
+You choose how to publish:
 
-## Что именно уходит наружу (и что — нет)
+- **Sign in with X** (recommended) — your page name is your `@handle`. Adds
+  identity, multi-machine merge (run it on another machine and the totals
+  combine automatically), a verified badge, and an optional daily auto-update.
+- **Quick (anonymous)** — just pick a nick and publish.
 
-Это инструмент про доверие, поэтому граница жёсткая и проверяемая в коде
+After publishing, your page is live at `https://tokmax.vibecoding.tech/<nick>`.
+
+## What leaves the machine (and what does not)
+
+This is a tool about trust, so the boundary is strict and verifiable in the code
 (`src/adapters/*.mjs`):
 
-- **Уходит только агрегат:** числа токенов по моделям (`input`, `output`,
-  `cacheCreate`, `cacheRead`, `reasoning`), даты дней, метка машины и
-  **посчитанный локально `costUsd`** (агрегат по источникам + итог) — это
-  по-прежнему производное число, а не сырьё.
-- **Никогда не уходит:** текст промптов, содержимое файлов, вывод инструментов,
-  API-ключи, сырые строки логов. Адаптеры читают из лога ровно четыре-пять
-  числовых полей usage + id модели + timestamp и выкидывают всё остальное.
+- **Only the aggregate is sent:** per-model token counts (`input`, `output`,
+  `cacheCreate`, `cacheRead`, `reasoning`), the per-day dates, and the
+  **locally-computed `costUsd`** (per-source aggregate + total) — still a derived
+  number, not raw material.
+- **Never sent:** prompt text, file contents, tool output, API keys, raw log
+  lines. The adapters read exactly four-or-five numeric usage fields per log line
+  plus the model id and a timestamp, and drop everything else.
 
-Открытый исходник — чтобы это можно было прочитать самому, а не верить на слово.
+It's open source so you can read this yourself rather than take it on faith.
 
-## Установка и запуск
+## Install & run
 
-Нужен Node.js >= 18. Зависимостей в рантайме — ноль (только встроенные модули
-Node и глобальный `fetch`).
+Needs Node.js >= 18. Zero runtime dependencies (just built-in Node modules and
+the global `fetch`).
 
 ```bash
-# разово, без установки — запустит онбординг (ник + как считать)
+# one-off, no install — starts the onboarding
 npx tokmax
 
-# или сразу с ником
-npx tokmax <nick>
-
-# или глобально
+# or globally
 npm i -g tokmax
 tokmax
+
+# sign in with X and publish this machine in one go
+npx tokmax login
+
+# publish an additional machine (same X login) — totals merge automatically
+npx tokmax login
 ```
 
-### Опции
+### Options
 
 ```text
 tokmax [<nick>] [options]
 
-  --onboard            принудительно запустить онбординг
-  --since YYYY-MM-DD   считать только с этого дня (по умолчанию — вся история)
-  --key <secret>       capability-токен для обновления уже занятого ника
-  --api <baseUrl>      базовый URL API
-  --machine <label>    метка машины (по умолчанию hostname)
-  --dry-run            показать превью и тело запроса, ничего не публиковать
-  --yes, -y            не спрашивать подтверждение
-  --help, -h           справка
+  login                sign in with X and publish this machine
+  logout               sign out on this machine (logout --all = every machine)
+  daily on|off|status  the daily auto-update
+  --onboard            force the onboarding flow
+  --since YYYY-MM-DD    count only from this day (default: whole history)
+  --api <baseUrl>      API base URL
+  --dry-run            show the preview + request body, publish nothing
+  --yes, -y            skip the confirmation prompt
+  --help, -h           help
 ```
 
-`--dry-run` показывает превью и точное тело запроса, которое ушло бы на сервер —
-удобно убедиться глазами, что наружу идут только числа.
+`--dry-run` prints the preview and the exact request body that would be sent —
+handy to confirm with your own eyes that only numbers go out.
 
-## Как считается доллар
+## How the dollar is computed
 
-**Цены: LiteLLM · Подсчёт: ccusage.**
+**Prices: LiteLLM · Counting: ccusage.**
 
-Ставки берутся из вшитого в пакет закреплённого снапшота
-[LiteLLM](https://github.com/BerriAI/litellm) (`src/pricing/litellm-prices.json`)
-плюс наша локальная карта override (`src/pricing/overrides.mjs`) для
-синтетических/датированных id, которых у LiteLLM нет. CLI считает доллар
-**локально, офлайн**, нашей формулой — сумма по моделям от
-`(input·r.input + output·r.output + cacheCreate·r.cacheCreate +
-cacheRead·r.cacheRead + reasoning·r.reasoning) / 1e6`, где `r` — ставки
-per-million для распознанной модели (или fallback для незнакомой). Чтение кэша
-(`cacheRead`) идёт по дисконтированной ставке (~0.1× input), а не по полной —
-поэтому число честное.
+Rates come from a pinned [LiteLLM](https://github.com/BerriAI/litellm) snapshot
+bundled in the package (`src/pricing/litellm-prices.json`) plus our local override
+map (`src/pricing/overrides.mjs`) for synthetic/dated ids LiteLLM doesn't have.
+The CLI computes the dollar **locally, offline**, with our formula — a sum over
+models of `(input·r.input + output·r.output + cacheCreate·r.cacheCreate +
+cacheRead·r.cacheRead + reasoning·r.reasoning) / 1e6`, where `r` is the
+per-million rate for the recognized model (or a fallback for an unknown one).
+Cache reads (`cacheRead`) use the discounted rate (~0.1× input), not the full
+rate — so the number is honest.
 
-Дальше CLI **кладёт посчитанный `costUsd` прямо в публикуемый агрегат**
-(`sources[]` + `totals`), а сервер его просто **хранит и показывает** — сам ничего
-не пересчитывает. Превью в терминале == опубликованное число по построению.
+The CLI then **puts the computed `costUsd` straight into the published aggregate**
+(`sources[]` + `totals`); the server just **stores and shows it** — it never
+recomputes. The terminal preview == the published number by construction.
 
-Обновить вшитый снапшот цен из upstream-LiteLLM: `npm run prices:refresh`.
+Refresh the bundled price snapshot from upstream LiteLLM: `npm run prices:refresh`.
 
-Методология (атрибуция LiteLLM + ccusage) —
-[docs/2-product/methodology/README.md](../docs/2-product/methodology/README.md).
+## Where the numbers come from
 
-## Откуда берутся числа
+- **Claude Code:** `~/.claude*/projects/**/*.jsonl` — usage from assistant
+  messages (`message.usage`).
+- **Codex:** `~/.codex/sessions/**/*.jsonl` and
+  `~/.codex/archived_sessions/*.jsonl` — `token_count` events (per-turn deltas).
 
-- **Claude Code:** `~/.claude*/projects/**/*.jsonl` — usage из assistant-сообщений
-  (`message.usage`).
-- **Codex:** `~/.codex/sessions/**/*.jsonl` и `~/.codex/archived_sessions/*.jsonl`
-  — события `token_count` (дельты per-turn).
-
-Каждый источник изолирован в свой адаптер (`src/adapters/`) и работает
-защитно: битые строки и отсутствующие поля просто пропускаются (по умолчанию 0).
-
-## Capability-токен
-
-При первой публикации ника сервер возвращает секрет, который CLI кладёт в
-`~/.config/tokenmax/<nick>.json` (права `0600`). Он нужен, чтобы
-позже **обновлять** свой ник. Не теряй его; для обновления на другой машине
-передай его через `--key <secret>`.
+Each source is isolated in its own adapter (`src/adapters/`) and works
+defensively: broken lines and missing fields are simply skipped (default 0).
 
 ## Endpoint
 
-По умолчанию CLI ходит в изолированный tokenmax-деплой
-(`https://chatty-boar-479.convex.site`) — только на hardened-роут публикации.
-Доллар считается локально (офлайн), сеть нужна лишь чтобы опубликовать агрегат.
-Переопределить базовый URL можно флагом `--api <baseUrl>`.
+By default the CLI talks to the isolated tokmax deployment — only to the hardened
+publish route. The dollar is computed locally (offline); the network is needed
+only to publish the aggregate. Override the base URL with `--api <baseUrl>`.
 
-## Лицензия
+## License
 
-MIT — см. [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

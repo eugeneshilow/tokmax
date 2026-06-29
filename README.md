@@ -1,16 +1,16 @@
-# tokenmax
+# tokmax
 
-Публичный счётчик token-maxing: сколько ценности по API-расценкам выжато из
-локальных AI-coding агентов (Codex, Claude Code). Изолированный продукт линейки
-**vibecoding.ru**.
+A public token-maxing meter: how much value, at API prices, you squeezed out of
+your local AI-coding agents (Codex, Claude Code). An isolated product in the
+**vibecoding** line.
 
-Цены: LiteLLM · Подсчёт: ccusage.
+Prices: LiteLLM · Counting: ccusage.
 
-- `cli/` — open-source CLI `tokmax` (`npx tokmax <ник>`):
-  читает локальные JSONL-логи, считает агрегаты, публикует. Наружу — только числа,
-  никогда не сырые логи или ключи.
-- `web/` — Next + Convex: публичные дашборды `tokenmax.vibecoding.ru/<ник>`,
-  leaderboard, ingest-эндпоинт. Отдельный Convex-проект, изолированный от
-  основного сайта.
+- `cli/` — the open-source CLI `tokmax` (`npx tokmax`): reads your local JSONL
+  logs, computes aggregates, and publishes them. Only numbers ever leave your
+  machine — never raw logs or keys.
+- `web/` — Next.js + Convex: the public dashboards at
+  `tokmax.vibecoding.tech/<nick>`, the leaderboard, and the ingest endpoint. A
+  separate Convex project, isolated from the main site.
 
-Дашборд: https://tokenmax.vibecoding.ru
+Dashboard: https://tokmax.vibecoding.tech
