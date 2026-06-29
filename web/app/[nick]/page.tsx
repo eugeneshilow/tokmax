@@ -91,7 +91,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
     profile.daily.length > 0
       ? profile.daily.reduce((max, day) => (day.totalTokens > max.totalTokens ? day : max))
       : null
-  const maxDailyTokens = peakDay ? peakDay.totalTokens : 0
+  const maxDailyCost = profile.daily.reduce((m, d) => Math.max(m, d.costUsd ?? 0), 0)
 
   // Экономика подписки: API-equivalent ÷ (подписка/мес × месяцы периода).
   const econ =
@@ -108,8 +108,6 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
           return { months, subTotal, ratio, profit, sub: profile.subscriptionUsd }
         })()
       : null
-
-  const machines = profile.machineLabels.join(' + ') || '—'
 
   // Ранг в лидерборде (фидбек @nikmcfly: «без лидерборда я как лох со ссылкой»).
   const board = await loadTmxLeaderboard(200)
@@ -131,8 +129,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
     rowPeriod: 'period',
     rowDays: 'days',
     rowCli: 'cli',
-    machinesNote: `Machines: ${machines}. Computed locally; only aggregates leave the box.`,
-    dailyBurnTitle: 'Daily token burn',
+    dailyBurnTitle: 'Daily burn ($ at API prices)',
     scoreboardTitle: 'Totals by source',
     buildEyebrow: 'build your own',
     counterTitleLine1: 'Your own counter —',
@@ -192,9 +189,6 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 <span className="text-white">vibecoding.tech</span>
               </span>
               <Badge>API-EQUIVALENT BURN</Badge>
-              {profile.machineLabels.map((label) => (
-                <Badge key={label}>{label}</Badge>
-              ))}
             </div>
 
             {/* X avatar: verified profiles mirror their X picture + name. */}
@@ -383,9 +377,6 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </div>
             </div>
 
-            <p className="mt-4 text-[12px] font-semibold leading-5 text-[#A1A1A6]">
-              {t.machinesNote}
-            </p>
           </aside>
         </div>
       </section>
@@ -414,7 +405,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             <div className="mt-4 grid gap-2">
               {/* Новые дни сверху: проектор хранит daily по возрастанию даты — реверсим. */}
               {[...profile.daily].reverse().map((day) => (
-                <DailyBar key={day.date} day={day} max={maxDailyTokens} />
+                <DailyBar key={day.date} day={day} max={maxDailyCost} />
               ))}
             </div>
           </div>
@@ -426,7 +417,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
           <SectionHeader
             eyebrow="scoreboard"
             title={t.scoreboardTitle}
-            right={`${profile.machineLabels.join(' + ') || 'aggregate'} · API estimate`}
+            right="API estimate"
           />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-left">
@@ -607,11 +598,14 @@ function SourceRow({ source }: { source: TmxProfileSource }) {
 }
 
 function DailyBar({ day, max }: { day: TmxProfileDaily; max: number }) {
-  const width = max > 0 ? Math.max(1, Math.round((day.totalTokens / max) * 100)) : 1
+  // Bar length = daily $ (API-equivalent); the inner split still shows the
+  // Codex/Claude token mix as a proportion.
+  const cost = day.costUsd ?? 0
+  const width = max > 0 ? Math.max(1, Math.round((cost / max) * 100)) : 1
   const codexWidth = day.totalTokens > 0 ? Math.round((day.codexTokens / day.totalTokens) * 100) : 0
 
   return (
-    <div className="grid gap-2 border border-[#D2D2D7] bg-white p-3 md:grid-cols-[116px_1fr_120px] md:items-center">
+    <div className="grid gap-2 border border-[#D2D2D7] bg-white p-3 md:grid-cols-[116px_1fr_140px] md:items-center">
       <p className="font-mono text-[13px] font-black">{fmtDate(day.date)}</p>
       <div className="h-8 bg-[#F5F5F7]">
         <div className="flex h-8" style={{ width: `${width}%` }}>
@@ -619,8 +613,11 @@ function DailyBar({ day, max }: { day: TmxProfileDaily; max: number }) {
           <div className="h-8 flex-1 bg-[#FF7A1A]" />
         </div>
       </div>
-      <div className="text-[13px] font-black md:text-right">
-        {formatCompactNumber(day.totalTokens)}
+      <div className="md:text-right">
+        <div className="text-[15px] font-black text-[#FF7A1A]">${formatUsd(cost)}</div>
+        <div className="text-[11px] font-semibold text-[#6E6E73]">
+          {formatCompactNumber(day.totalTokens)} tokens
+        </div>
       </div>
     </div>
   )

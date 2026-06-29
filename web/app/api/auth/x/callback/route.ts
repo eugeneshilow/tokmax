@@ -16,10 +16,10 @@ export async function GET(request: NextRequest): Promise<Response> {
   // X может вернуть error (например, отказ пользователя).
   const oauthError = searchParams.get('error')
   if (oauthError) {
-    return authErrorResponse(400, 'Вход через X не завершён.')
+    return authErrorResponse(400, 'X sign-in was not completed.')
   }
   if (!code || !state) {
-    return authErrorResponse(400, 'Не хватает параметров ответа.')
+    return authErrorResponse(400, 'Missing response parameters.')
   }
 
   try {
@@ -36,6 +36,6 @@ export async function GET(request: NextRequest): Promise<Response> {
     return Response.redirect(loopback.toString(), 302)
   } catch {
     // Никогда не логируем code/state и не кладём их в ответ.
-    return authErrorResponse(400, 'Не удалось завершить вход.')
+    return authErrorResponse(400, 'Could not complete sign-in.')
   }
 }

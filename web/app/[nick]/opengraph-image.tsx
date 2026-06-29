@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
-export const alt = 'tokenmax: API-equivalent usage'
+export const alt = 'tokmax: API-equivalent usage'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -75,7 +75,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#FF7A1A' }}>
-              tokenmax
+              tokmax
             </div>
             <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#DFFFEA' }}>
               tokmax.vibecoding.tech
@@ -83,7 +83,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', fontSize: 64, fontWeight: 800, lineHeight: 1 }}>
-              Считай свой расход токенов
+              Measure your token burn
             </div>
             <div
               style={{
@@ -94,7 +94,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
                 color: '#D2D2D7',
               }}
             >
-              Codex + Claude Code · API-equivalent против подписки
+              Codex + Claude Code · API-equivalent vs subscription
             </div>
           </div>
           <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, color: '#18D86B' }}>
@@ -137,7 +137,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
                 fontWeight: 800,
               }}
             >
-              tokenmax
+              tokmax
             </div>
             <div
               style={{
@@ -170,7 +170,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
               color: '#A1A1A6',
             }}
           >
-            {profile.nick} нажёг
+            {profile.nick} burned
           </div>
           <div
             style={{
@@ -193,14 +193,14 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
               color: '#D2D2D7',
             }}
           >
-            по API-расценкам · {formatInteger(profile.totalTokens)} токенов
+            at API prices · {formatInteger(profile.totalTokens)} tokens
           </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 14 }}>
-            <OgStat label="ТОКЕНОВ" value={formatCompactNumber(profile.totalTokens)} />
-            <OgStat label="ПЕРИОД" value={`${profile.firstDay} → ${profile.lastDay}`} />
+            <OgStat label="TOKENS" value={formatCompactNumber(profile.totalTokens)} />
+            <OgStat label="PERIOD" value={`${profile.firstDay} → ${profile.lastDay}`} />
           </div>
           <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#18D86B' }}>
             tokmax.vibecoding.tech/{profile.nick}

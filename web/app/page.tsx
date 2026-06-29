@@ -11,16 +11,16 @@ export const revalidate = 0
 const SELF_SERVE_ONELINER = 'npx tokmax'
 
 export const metadata: Metadata = {
-  title: 'tokenmax — публичный счётчик API-equivalent расхода токенов',
+  title: 'tokmax — your public API-equivalent token-burn meter',
   description:
-    'tokenmax читает локальные логи Codex и Claude Code, считает, во сколько обошёлся бы твой usage по цене API, и публикует счётчик одной командой.',
+    'tokmax reads your local Codex and Claude Code logs, calculates what that usage would cost at API prices, and publishes the meter with one command.',
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'tokenmax — сколько ты нажёг по API-расценкам',
+    title: 'tokmax — how much you burned at API prices',
     description:
-      'Публичный счётчик API-equivalent расхода Codex и Claude Code. Собери свой одной командой.',
+      'A public API-equivalent burn meter for Codex and Claude Code. Build yours with one command.',
     url: 'https://tokmax.vibecoding.tech/',
     type: 'website',
   },
@@ -35,20 +35,20 @@ export default async function LandingPage() {
         <div className="mx-auto grid max-w-[1280px] gap-10 px-4 py-12 md:px-6 md:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(420px,520px)] lg:gap-14">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge>TOKENMAX</Badge>
+              <Badge>TOKMAX</Badge>
               <Badge>API-EQUIVALENT</Badge>
             </div>
 
             <h1 className="mt-8 max-w-3xl text-balance text-[44px] font-black leading-[0.95] tracking-normal sm:text-[60px] lg:text-[72px]">
-              Сколько ты нажёг
+              How much you burned
               <br />
-              <span className="text-[#FF7A1A]">по цене API.</span>
+              <span className="text-[#FF7A1A]">at API prices.</span>
             </h1>
 
             <p className="mt-7 max-w-2xl text-[17px] leading-7 text-[#D2D2D7] md:text-[20px] md:leading-8">
-              tokenmax — публичный счётчик: он читает локальные логи Codex и Claude Code и считает,
-              во сколько обошёлся бы тот же объём токенов, если платить за usage по цене API, а не по
-              подписке. Наружу уходят только агрегаты: ни ключей, ни сырых логов.
+              tokmax is a public meter: it reads your local Codex and Claude Code logs and
+              calculates what the same volume of tokens would cost if you paid API prices instead of
+              a subscription. Only aggregates leave your machine — your keys and raw logs stay local.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3 text-[14px] font-bold">
@@ -57,7 +57,7 @@ export default async function LandingPage() {
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
               >
                 <Trophy className="h-4 w-4" />
-                Лидерборд
+                Leaderboard
               </Link>
               <Link
                 href="https://t.me/shilovtech"
@@ -78,14 +78,14 @@ export default async function LandingPage() {
 
           <div className="self-start">
             <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#18D86B]">
-              собери свой
+              build yours
             </p>
             <h2 className="mt-3 text-[28px] font-black leading-[1.0]">
-              Свой счётчик — одной командой.
+              Your meter — one command.
             </h2>
             <p className="mt-4 max-w-md text-[15px] font-semibold leading-7 text-[#D2D2D7]">
-              Запусти команду в терминале — она посчитает API-equivalent и опубликует твою страницу
-              на <span className="text-white">tokmax.vibecoding.tech/&lt;ник&gt;</span>.
+              Run the command in your terminal — it computes your API-equivalent and publishes your
+              page at <span className="text-white">tokmax.vibecoding.tech/&lt;nick&gt;</span>.
             </p>
             <div className="mt-6">
               <PromptCopyBox prompt={SELF_SERVE_ONELINER} />
@@ -102,7 +102,7 @@ export default async function LandingPage() {
                 leaderboard
               </p>
               <h2 className="mt-1 text-[28px] font-black leading-none md:text-[34px]">
-                Кто сжёг больше всех
+                Who burned the most
               </h2>
             </div>
             <p className="font-mono text-[12px] font-bold text-[#6E6E73]">
@@ -112,8 +112,9 @@ export default async function LandingPage() {
 
           {rows.length === 0 ? (
             <p className="mt-8 text-[15px] font-semibold text-[#A1A1A6]">
-              Пока пусто. Запусти{' '}
-              <span className="font-mono text-[#18D86B]">{SELF_SERVE_ONELINER}</span> и стань первым.
+              Nothing here yet. Run{' '}
+              <span className="font-mono text-[#18D86B]">{SELF_SERVE_ONELINER}</span> and be the
+              first.
             </p>
           ) : (
             <div className="mt-6 overflow-x-auto border border-[#242428]">
@@ -121,10 +122,10 @@ export default async function LandingPage() {
                 <thead className="bg-[#111111] text-[11px] font-black uppercase tracking-[0.08em] text-[#A1A1A6]">
                   <tr>
                     <th className="border-b border-[#242428] px-4 py-3">#</th>
-                    <th className="border-b border-[#242428] px-4 py-3">Ник</th>
+                    <th className="border-b border-[#242428] px-4 py-3">Nick</th>
                     <th className="border-b border-[#242428] px-4 py-3 text-right">API-equivalent</th>
-                    <th className="border-b border-[#242428] px-4 py-3 text-right">Токенов</th>
-                    <th className="border-b border-[#242428] px-4 py-3 text-right">Последний день</th>
+                    <th className="border-b border-[#242428] px-4 py-3 text-right">Tokens</th>
+                    <th className="border-b border-[#242428] px-4 py-3 text-right">Last day</th>
                   </tr>
                 </thead>
                 <tbody className="text-[14px] font-semibold">
