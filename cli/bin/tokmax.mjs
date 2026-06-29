@@ -209,6 +209,22 @@ async function checkAvailability(nick) {
   }
 }
 
+// Acknowledge a returning account before publishing: if the @handle already has
+// a published page, say so + that THIS machine is being added (multi-device
+// merge). Otherwise it's a fresh page. Uses the public page check — no extra
+// backend call, no secrets.
+async function acknowledgeAccount(handle) {
+  if (!handle) return;
+  const exists = (await checkAvailability(handle.toLowerCase())) === 'taken';
+  if (exists) {
+    console.log(
+      `\n👋 Welcome back — @${handle} is already on tokmax. Adding THIS machine to your account; all your machines merge into one combined total.`,
+    );
+  } else {
+    console.log(`\nSetting up your tokmax page for @${handle} — this is your first machine.`);
+  }
+}
+
 // ── Onboarding ──────────────────────────────────────────────────────────────
 
 /**
@@ -254,13 +270,13 @@ async function runOnboarding(cliVersion, apiBase) {
     console.log(`  open source: ${REPO_DISPLAY}`);
     console.log(`  We'll build your page at ${PAGE_BASE.replace('https://', '')}/<nick>.\n`);
 
-    // ── Choice: Quick (anonymous) vs Sign in with X ──
+    // ── Choice: Sign in with X (default) vs Quick (anonymous) ──
     console.log('How do you want to publish?');
-    console.log('  [1] Quick (anonymous) — pick a nick, compute, publish  (recommended)');
-    console.log('  [2] Sign in with X    — your @handle becomes your page name (identity, multi-machine, daily auto-update)');
+    console.log('  [1] Sign in with X    — your @handle becomes your page name (identity, multi-machine, daily auto-update)  (recommended)');
+    console.log('  [2] Quick (anonymous) — just pick a nick and publish');
     const choice = (await ask('  choice [1/2, Enter=1]: ')).trim();
 
-    if (choice === '2') {
+    if (choice !== '2') {
       // Sign in with X — run the real login flow. rl must be released first so
       // the loopback prompts/output do not fight the readline interface.
       if (rl) rl.close();
@@ -271,8 +287,8 @@ async function runOnboarding(cliVersion, apiBase) {
         config.bearer = (await loadAuth())?.token;
         config.handle = handle || null;
         config.nick = handle || null;
-        console.log(`\n✓ Signed in as @${handle || '?'} — your tokmax page will use this @handle.`);
-        console.log('  Second machine with the same login merges automatically (no --key).\n');
+        console.log(`\n✓ Signed in as @${handle || '?'} — your page name is your @handle.`);
+        await acknowledgeAccount(handle);
       } catch (err) {
         console.error(`Sign-in failed: ${err && err.message ? err.message : err}`);
         return null;
@@ -368,6 +384,7 @@ async function loginCmd(rawArgs, apiBase) {
   }
   console.log(`\n✓ Signed in as @${handle || '?'} — your page name is your @handle.`);
   console.log(`Token saved: ${file} (chmod 600).`);
+  await acknowledgeAccount(handle);
 
   // Login alone isn't the goal — publish THIS machine right away so the page
   // appears, and any additional machine merges automatically under the same
