@@ -67,6 +67,10 @@ export default defineSchema({
   })
     .index('by_nick', ['nick'])
     .index('by_cost_usd', ['costUsd'])
+    // Лидерборд читает только видимые профили: eq('suspicious', false) на уровне
+    // индекса, чтобы suspicious-кластер (высокий costUsd) не вытеснял легитимные
+    // строки из bounded take-окна (filter-after-take = DoS лидерборда).
+    .index('by_suspicious_cost', ['suspicious', 'costUsd'])
     .index('by_updated_at', ['updatedAt']),
 
   // "Sign in with X": верифицированный аккаунт. Ключ — ИММУТАБЕЛЬНЫЙ x_user_id;

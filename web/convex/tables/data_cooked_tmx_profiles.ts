@@ -287,14 +287,15 @@ export const listLeaderboard = query({
   returns: v.array(vTmxLeaderboardRow),
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 200)
+    // Фильтр suspicious на уровне индекса (eq false), не после take: иначе
+    // suspicious-кластер (топ by_cost_usd) заполняет окно и обнуляет лидерборд.
     const rows = await ctx.db
       .query('data_cooked_tmx_profiles')
-      .withIndex('by_cost_usd')
+      .withIndex('by_suspicious_cost', (q) => q.eq('suspicious', false))
       .order('desc')
-      .take(limit * 2)
+      .take(limit)
 
     return rows
-      .filter((row) => !row.suspicious)
       .slice(0, limit)
       .map((row) => ({
         nick: row.nick,
@@ -360,14 +361,15 @@ export const listLeaderboardByPeriod = query({
     const period = normalizePeriod(args.period)
     const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
 
+    // Фильтр suspicious на уровне индекса (eq false), не после take: иначе
+    // suspicious-кластер заполняет TMX_PERIOD_SCAN_CAP-окно и обнуляет лидерборд.
     const rows = await ctx.db
       .query('data_cooked_tmx_profiles')
-      .withIndex('by_cost_usd')
+      .withIndex('by_suspicious_cost', (q) => q.eq('suspicious', false))
       .order('desc')
       .take(TMX_PERIOD_SCAN_CAP)
 
     const ranked = rows
-      .filter((row) => !row.suspicious)
       .map((row) => {
         if (period === 'all') {
           return {
