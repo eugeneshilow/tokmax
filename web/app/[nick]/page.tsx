@@ -11,7 +11,6 @@ import {
   BadgeCheck,
   Flame,
   Gauge,
-  Github,
   ReceiptText,
   ShieldAlert,
   Terminal,
@@ -287,7 +286,6 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-[14px] font-bold text-white transition-colors hover:text-[#FF7A1A]"
               >
-                <Github className="h-4 w-4" />
                 {REPO_DISPLAY}
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
               </Link>
