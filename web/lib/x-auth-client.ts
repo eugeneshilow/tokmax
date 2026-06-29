@@ -7,14 +7,14 @@ import { makeFunctionReference } from 'convex/server'
 
 export const xAuthBegin = makeFunctionReference<
   'action',
-  { port: number; nonce: string },
+  { port: number; redeem_secret_hash: string },
   { url: string }
 >('xAuth:begin')
 
 export const xAuthComplete = makeFunctionReference<
   'action',
   { code: string; state: string },
-  { port: number; cli_nonce: string; exchange_code: string }
+  { port: number; exchange_code: string }
 >('xAuth:complete')
 
 export function getConvexClient(): ConvexHttpClient {

@@ -3,16 +3,17 @@ import { authErrorResponse, getConvexClient, xAuthBegin } from '@/lib/x-auth-cli
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/auth/x/start?port=PORT&nonce=CLI_NONCE
-// CLI loopback открывает этот URL в браузере. Читаем port+nonce, просим Convex
-// (xAuth.begin) создать OAuth2-сессию (state + PKCE S256) и 302-редиректим на
-// X authorize. port валидируется внутри begin (целое 1024–65535).
+// GET /api/auth/x/start?port=PORT&rsh=REDEEM_SECRET_HASH
+// CLI loopback открывает этот URL в браузере. Читаем port + rsh (SHA-256 от
+// redeem_secret — сам секрет в URL НЕ уходит), просим Convex (xAuth.begin)
+// создать OAuth2-сессию (state + PKCE S256) и 302-редиректим на X authorize.
+// port и rsh валидируются внутри begin (порт 1024–65535; rsh — 64-hex SHA-256).
 export async function GET(request: NextRequest): Promise<Response> {
   const { searchParams } = request.nextUrl
   const portRaw = searchParams.get('port')
-  const nonce = searchParams.get('nonce')
+  const rsh = searchParams.get('rsh')
 
-  if (!portRaw || !nonce) {
+  if (!portRaw || !rsh) {
     return authErrorResponse(400, 'Не хватает параметров запроса.')
   }
   const port = Number(portRaw)
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   try {
     const convex = getConvexClient()
-    const { url } = await convex.action(xAuthBegin, { port, nonce })
+    const { url } = await convex.action(xAuthBegin, { port, redeem_secret_hash: rsh })
     return Response.redirect(url, 302)
   } catch {
     // Без секретов в ответе.

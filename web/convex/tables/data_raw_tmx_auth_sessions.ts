@@ -12,7 +12,7 @@ export const createSession = internalMutation({
     state: v.string(),
     code_verifier: v.string(),
     port: v.number(),
-    cli_nonce: v.string(),
+    redeem_secret_hash: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -21,7 +21,7 @@ export const createSession = internalMutation({
       state: args.state,
       code_verifier: args.code_verifier,
       port: args.port,
-      cli_nonce: args.cli_nonce,
+      redeem_secret_hash: args.redeem_secret_hash,
       exchange_code_hash: null,
       account_x_user_id: null,
       used: false,
@@ -35,7 +35,8 @@ export const createSession = internalMutation({
 /**
  * complete (шаг 1): АТОМАРНО потребить сессию по state. Reject если
  * отсутствует / протухла / уже использована (replay/CSRF-защита). Помечает
- * used=true и возвращает code_verifier+port+cli_nonce для обмена кода.
+ * used=true и возвращает code_verifier+port для обмена кода. cli_nonce/secret в
+ * URL больше не уходят — loopback-redirect несёт только exchange_code.
  */
 export const consumeSession = internalMutation({
   args: { state: v.string() },
@@ -44,7 +45,6 @@ export const consumeSession = internalMutation({
       ok: v.literal(true),
       code_verifier: v.string(),
       port: v.number(),
-      cli_nonce: v.string(),
     }),
     v.object({ ok: v.literal(false) })
   ),
@@ -62,7 +62,6 @@ export const consumeSession = internalMutation({
       ok: true as const,
       code_verifier: session.code_verifier,
       port: session.port,
-      cli_nonce: session.cli_nonce,
     }
   },
 })
@@ -95,14 +94,20 @@ export const attachExchange = internalMutation({
 })
 
 /**
- * redeem: АТОМАРНО потребить exchange_code (one-time + TTL + match cli_nonce),
+ * redeem: АТОМАРНО потребить exchange_code (one-time + TTL + PKCE-style proof),
  * затем записать SHA-256(account-токен) на аккаунт. Сам токен генерится/хешится
  * выше (httpAction); сюда приходит только token_hash.
+ *
+ * P1 (кража токена через перехват loopback-URL): связка — не cli_nonce (он
+ * ехал бы в том же URL, что и exchange_code, и потому не защищал бы), а
+ * redeem_secret_hash. CLI предъявляет сырой redeem_secret server-to-server;
+ * сверяем SHA-256(redeem_secret) === сохранённый redeem_secret_hash ДО минта.
+ * Секрет нигде не появляется в URL, поэтому утёкший exchange_code бесполезен.
  */
 export const redeemSession = internalMutation({
   args: {
     exchange_code_hash: v.string(),
-    cli_nonce: v.string(),
+    redeem_secret_hash: v.string(),
     token_hash: v.string(),
   },
   returns: v.union(
@@ -118,7 +123,7 @@ export const redeemSession = internalMutation({
       .unique()
     if (!session || !session.exchange_code_hash) return { ok: false as const }
     if (Date.now() > session.expires_at) return { ok: false as const }
-    if (session.cli_nonce !== args.cli_nonce) return { ok: false as const }
+    if (session.redeem_secret_hash !== args.redeem_secret_hash) return { ok: false as const }
     if (!session.account_x_user_id) return { ok: false as const }
 
     const account = await ctx.db

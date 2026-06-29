@@ -24,13 +24,15 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   try {
     const convex = getConvexClient()
-    const { port, cli_nonce, exchange_code } = await convex.action(xAuthComplete, { code, state })
+    const { port, exchange_code } = await convex.action(xAuthComplete, { code, state })
 
-    // P1: токена в URL нет — только одноразовый exchange_code. Host+scheme
-    // захардкожены; PORT строго из результата (сохранённая сессия), не из query.
+    // P1: в URL уходит ТОЛЬКО одноразовый exchange_code — ни X-токена, ни
+    // cli_nonce, ни redeem_secret. Связку redeem обеспечивает redeem_secret
+    // (PKCE-style), который CLI предъявляет server-to-server и который НИКОГДА
+    // не попадает в URL, поэтому перехват этого loopback-URL бесполезен. Host+
+    // scheme захардкожены; PORT строго из сохранённой сессии, не из query.
     const loopback = new URL(`http://127.0.0.1:${port}/cb`)
     loopback.searchParams.set('code', exchange_code)
-    loopback.searchParams.set('nonce', cli_nonce)
     return Response.redirect(loopback.toString(), 302)
   } catch {
     // Никогда не логируем code/state и не кладём их в ответ.

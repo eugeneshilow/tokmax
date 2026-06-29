@@ -5,12 +5,20 @@
 //   2) opens the browser to the web /start route (which drives the OAuth dance
 //      in Convex), and
 //   3) receives a one-time exchange_code on the loopback, then POSTs it
-//      server-to-server to /api/auth/x/redeem to get the account token back in
-//      the RESPONSE BODY (never via a URL).
+//      together with a redeem_secret server-to-server to /api/auth/x/redeem to
+//      get the account token back in the RESPONSE BODY (never via a URL).
 // The X access token is never seen here and is discarded server-side.
+//
+// REDEEM SECRET (PKCE-style proof, closes loopback-URL interception): the CLI
+// generates a high-entropy redeem_secret and sends ONLY sha256(redeem_secret)
+// to /start (so it can be bound to the session). The raw secret never enters
+// any URL — not the /start URL, not the loopback redirect. It is presented only
+// in the server-to-server /redeem POST body. So a leaked loopback URL (which
+// carries just the exchange_code) is useless to a remote attacker without the
+// redeem_secret that lives only inside this CLI process.
 
 import http from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
 import { saveAuth, deleteAuth } from './secrets.mjs';
@@ -45,8 +53,11 @@ function randomPort() {
 }
 
 // Start an HTTP server on 127.0.0.1:<random port> that answers exactly one
-// GET /cb with a matching nonce, then resolves. Retries a few ports on collision.
-function startLoopback(cliNonce) {
+// GET /cb carrying the one-time exchange_code, then resolves. Retries a few
+// ports on collision. The callback URL no longer carries a nonce: the redeem
+// step is bound by redeem_secret (presented only over the s2s POST), and this
+// loopback still rejects any cross-site request that carries an Origin header.
+function startLoopback() {
   return new Promise((resolveStart, rejectStart) => {
     let answered = false;
     let resolveResult;
@@ -84,9 +95,7 @@ function startLoopback(cliNonce) {
         return;
       }
       const code = parsed.searchParams.get('code');
-      const nonce = parsed.searchParams.get('nonce');
-      // P1: nonce must match our own — reject mismatched/cross-site callbacks.
-      if (!code || nonce !== cliNonce) {
+      if (!code) {
         res.writeHead(400, { 'content-type': 'text/plain' });
         res.end('bad request');
         return;
@@ -128,10 +137,13 @@ function startLoopback(cliNonce) {
 
 /** Full login flow. Returns { handle, file } on success; throws on failure. */
 export async function login(apiBase) {
-  const cliNonce = randomBytes(32).toString('hex');
-  const { server, port, resultPromise } = await startLoopback(cliNonce);
+  // High-entropy redeem_secret (256-bit). Only its SHA-256 travels in the /start
+  // URL; the raw secret stays in this process and is shown only to /redeem s2s.
+  const redeemSecret = randomBytes(32).toString('hex');
+  const redeemSecretHash = createHash('sha256').update(redeemSecret).digest('hex');
+  const { server, port, resultPromise } = await startLoopback();
 
-  const startUrl = `${WEB_BASE}/api/auth/x/start?port=${port}&nonce=${encodeURIComponent(cliNonce)}`;
+  const startUrl = `${WEB_BASE}/api/auth/x/start?port=${port}&rsh=${encodeURIComponent(redeemSecretHash)}`;
   console.log('Открываю браузер для входа через X…');
   console.log(`Если не открылось — открой вручную:\n  ${startUrl}\n`);
   openBrowser(startUrl);
@@ -143,11 +155,13 @@ export async function login(apiBase) {
     server.close();
   }
 
-  // Server-to-server: exchange_code → account token (in the response BODY).
+  // Server-to-server: exchange_code + redeem_secret → account token (in the
+  // response BODY). The redeem_secret (not its hash) is sent here, and only
+  // here — it never touches a URL, so a leaked loopback URL can't redeem.
   const res = await fetch(`${apiBase}/api/auth/x/redeem`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ exchange_code: exchange.code, cli_nonce: cliNonce }),
+    body: JSON.stringify({ exchange_code: exchange.code, redeem_secret: redeemSecret }),
   });
   let json = null;
   try {

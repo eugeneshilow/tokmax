@@ -93,7 +93,7 @@ const tmxRevokeByTokenHash = makeFunctionReference<
 
 const tmxRedeemSession = makeFunctionReference<
   'mutation',
-  { exchange_code_hash: string; cli_nonce: string; token_hash: string },
+  { exchange_code_hash: string; redeem_secret_hash: string; token_hash: string },
   { ok: true; handle: string } | { ok: false }
 >('tables/data_raw_tmx_auth_sessions:redeemSession')
 
@@ -357,9 +357,15 @@ http.route({
 // "Sign in with X" — loopback CLI endpoints (server-to-server).
 // ===========================================================================
 
-// redeem: CLI loopback POST'ит сюда {exchange_code, cli_nonce}. Реальный
+// redeem: CLI loopback POST'ит сюда {exchange_code, redeem_secret}. Реальный
 // account-токен возвращается в ТЕЛЕ ответа (никогда в URL). Сервер генерит
 // высокоэнтропийный токен, хранит только его SHA-256, отдаёт plaintext один раз.
+//
+// P1 (кража токена через перехват loopback-URL): redeem_secret — PKCE-style
+// доказательство владения, которое CLI держит у себя и шлёт server-to-server
+// (никогда в URL). Сверяем SHA-256(redeem_secret) с сохранённым на сессии
+// redeem_secret_hash. exchange_code сам по себе (то, что уехало в loopback-URL)
+// не редимится — без redeem_secret он бесполезен.
 http.route({
   path: '/api/auth/x/redeem',
   method: 'POST',
@@ -371,19 +377,20 @@ http.route({
       return tmxJson({ ok: false, reason: 'invalid_json' }, 400)
     }
     const exchangeCode = typeof body.exchange_code === 'string' ? body.exchange_code : ''
-    const cliNonce = typeof body.cli_nonce === 'string' ? body.cli_nonce : ''
-    if (!exchangeCode || !cliNonce) {
+    const redeemSecret = typeof body.redeem_secret === 'string' ? body.redeem_secret : ''
+    if (!exchangeCode || !redeemSecret) {
       return tmxJson({ ok: false, reason: 'invalid_payload' }, 400)
     }
 
     const exchangeCodeHash = await tmxSha256Hex(exchangeCode)
+    const redeemSecretHash = await tmxSha256Hex(redeemSecret)
     // Высокоэнтропийный отзываемый account-токен; храним только хеш.
     const token = randomToken(32)
     const tokenHash = await tmxSha256Hex(token)
 
     const result = await ctx.runMutation(tmxRedeemSession, {
       exchange_code_hash: exchangeCodeHash,
-      cli_nonce: cliNonce,
+      redeem_secret_hash: redeemSecretHash,
       token_hash: tokenHash,
     })
     if (!result.ok) {

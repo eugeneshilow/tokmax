@@ -27,15 +27,14 @@ import {
 // как уже сделано в http.ts).
 const createSession = makeFunctionReference<
   'mutation',
-  { state: string; code_verifier: string; port: number; cli_nonce: string },
+  { state: string; code_verifier: string; port: number; redeem_secret_hash: string },
   null
 >('tables/data_raw_tmx_auth_sessions:createSession')
 
 const consumeSession = makeFunctionReference<
   'mutation',
   { state: string },
-  | { ok: true; code_verifier: string; port: number; cli_nonce: string }
-  | { ok: false }
+  { ok: true; code_verifier: string; port: number } | { ok: false }
 >('tables/data_raw_tmx_auth_sessions:consumeSession')
 
 const attachExchange = makeFunctionReference<
@@ -54,17 +53,20 @@ const upsertAccount = makeFunctionReference<
  * begin: создаёт OAuth2-сессию (state >=256 бит + PKCE S256), кладёт её в БД и
  * возвращает URL авторизации X. port валидируется как целое 1024–65535 (P0
  * loopback): дальше web-route построит loopback-redirect только из СОХРАНЁННОГО
- * порта, не из свежего query.
+ * порта, не из свежего query. redeem_secret_hash — SHA-256(redeem_secret),
+ * PKCE-style доказательство владения для redeem: сюда приходит только хеш, сам
+ * секрет остаётся в CLI и предъявляется server-to-server при redeem. Валидируем
+ * как 64-символьный hex (SHA-256), чтобы отсечь мусор.
  */
 export const begin = action({
-  args: { port: v.number(), nonce: v.string() },
+  args: { port: v.number(), redeem_secret_hash: v.string() },
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
     if (!isValidLoopbackPort(args.port)) {
       throw new Error('invalid_port')
     }
-    if (typeof args.nonce !== 'string' || args.nonce.length < 16 || args.nonce.length > 256) {
-      throw new Error('invalid_nonce')
+    if (!/^[0-9a-f]{64}$/.test(args.redeem_secret_hash)) {
+      throw new Error('invalid_redeem_secret_hash')
     }
 
     const clientId = process.env.X_CLIENT_ID
@@ -78,7 +80,7 @@ export const begin = action({
       state,
       code_verifier: codeVerifier,
       port: args.port,
-      cli_nonce: args.nonce,
+      redeem_secret_hash: args.redeem_secret_hash,
     })
 
     const url = buildAuthorizeUrl({ clientId, state, codeChallenge })
@@ -90,15 +92,15 @@ export const begin = action({
  * complete: вызывается web-callback'ом. Атомарно потребляет сессию по state
  * (reject reuse/expired), меняет code на токен X (Basic auth confidential),
  * читает identity, апсёртит аккаунт по immutable x_user_id, выдаёт одноразовый
- * exchange_code (TTL 60s), и ОТБРАСЫВАЕТ X-токены. Возвращает port+cli_nonce+
- * exchange_code — web построит loopback http://127.0.0.1:PORT/cb (host/scheme
- * захардкожены, PORT из сохранённой сессии).
+ * exchange_code (TTL 30s), и ОТБРАСЫВАЕТ X-токены. Возвращает port+
+ * exchange_code — web построит loopback http://127.0.0.1:PORT/cb?code=...
+ * (host/scheme захардкожены, PORT из сохранённой сессии). В URL уходит ТОЛЬКО
+ * exchange_code; redeem_secret там не появляется, поэтому утёкший URL бесполезен.
  */
 export const complete = action({
   args: { code: v.string(), state: v.string() },
   returns: v.object({
     port: v.number(),
-    cli_nonce: v.string(),
     exchange_code: v.string(),
   }),
   handler: async (ctx, args) => {
@@ -164,6 +166,6 @@ export const complete = action({
     })
 
     // X access-токен здесь выходит из области видимости (не сохраняется).
-    return { port: session.port, cli_nonce: session.cli_nonce, exchange_code: exchangeCode }
+    return { port: session.port, exchange_code: exchangeCode }
   },
 })

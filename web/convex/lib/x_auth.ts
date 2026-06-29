@@ -23,7 +23,7 @@ export const X_SCOPE = 'users.read tweet.read'
 
 // TTL короткоживущих артефактов.
 export const X_SESSION_TTL_MS = 10 * 60 * 1000 // авторизация (state/PKCE)
-export const X_EXCHANGE_TTL_MS = 60 * 1000 // одноразовый exchange_code для loopback
+export const X_EXCHANGE_TTL_MS = 30 * 1000 // одноразовый exchange_code для loopback
 
 // Loopback CLI: только 127.0.0.1, порт в непривилегированном диапазоне.
 export const LOOPBACK_PORT_MIN = 1024

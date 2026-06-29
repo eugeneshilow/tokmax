@@ -91,13 +91,19 @@ export default defineSchema({
 
   // "Sign in with X": короткоживущая OAuth2-сессия (state + PKCE). Создаётся в
   // begin, потребляется один раз в complete (CSRF/replay-защита), затем держит
-  // одноразовый exchange_code (TTL 60s) для loopback-обмена CLI. Все секреты
-  // (code_verifier, exchange_code_hash) server-side; наружу не уходят.
+  // одноразовый exchange_code (TTL 30s) для loopback-обмена CLI. Все секреты
+  // (code_verifier, exchange_code_hash, redeem_secret_hash) server-side; наружу
+  // не уходят. redeem_secret_hash — PKCE-style доказательство владения для
+  // redeem: CLI генерит высокоэнтропийный redeem_secret, сюда кладётся ТОЛЬКО
+  // его SHA-256; сам секрет никогда не попадает в URL (ни в loopback-redirect,
+  // ни куда-либо) и предъявляется server-to-server при redeem. Поэтому утёкший
+  // loopback-URL (один exchange_code) бесполезен — это закрывает кражу токена
+  // через перехват loopback-URL (RFC 8252 PKCE-эквивалент для redeem-шага).
   data_raw_tmx_auth_sessions: defineTable({
     state: v.string(),
     code_verifier: v.string(),
     port: v.number(),
-    cli_nonce: v.string(),
+    redeem_secret_hash: v.string(),
     exchange_code_hash: v.union(v.string(), v.null()),
     account_x_user_id: v.union(v.string(), v.null()),
     used: v.boolean(),
