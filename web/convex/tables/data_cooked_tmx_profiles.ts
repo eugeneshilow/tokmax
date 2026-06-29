@@ -62,11 +62,9 @@ function round2(value: number): number {
 const TMX_PROJECTOR_WINDOW = 60
 
 /**
- * Проектор: иммутабельные публикации ника → mutable снапшот профиля.
- * Берёт ПОСЛЕДНЮЮ публикацию на каждую машину (machineLabel) и суммирует по
- * машинам — мульти-комп (V1, `--key`) ляжет сюда без миграции; для MVP это
- * просто последняя публикация одной машины. Чистый async-хелпер, чтобы его
- * могла звать и мутация publish, и отдельная recomputeProfile.
+ * Проектор (по нику, legacy capability-secret): иммутабельные публикации ника →
+ * mutable снапшот профиля. Берёт ПОСЛЕДНЮЮ публикацию на каждую машину
+ * (machineLabel) и суммирует по машинам.
  */
 export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise<void> {
   // HARDENING #4: ограниченное чтение через compound-индекс [nick, insertedAt]
@@ -76,7 +74,39 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
     .withIndex('by_nick_inserted', (q) => q.eq('nick', nick))
     .order('desc')
     .take(TMX_PROJECTOR_WINDOW)
+  await writeProfileFromRows(ctx, nick, rows, undefined)
+}
 
+/**
+ * Проектор (по аккаунту, Sign in with X): группирует ВСЕ машины аккаунта по
+ * immutable x_user_id и суммирует — 2-я машина с тем же X-логином авто-сливается
+ * без ручного `--key`. Dedup по (account_x_user_id, machine_label). Профиль
+ * пишется под nick=handle.
+ */
+export async function projectTmxProfileForAccount(
+  ctx: MutationCtx,
+  accountXUserId: string,
+  nick: string
+): Promise<void> {
+  const rows = await ctx.db
+    .query('data_raw_tmx_submissions')
+    .withIndex('by_account_inserted', (q) => q.eq('account_x_user_id', accountXUserId))
+    .order('desc')
+    .take(TMX_PROJECTOR_WINDOW)
+  await writeProfileFromRows(ctx, nick, rows, accountXUserId)
+}
+
+/**
+ * Общий сборщик снапшота: дедуп последней публикации на машину, сумма источников
+ * и дней, запись/обновление cooked-профиля под ник. accountXUserId проставляется
+ * в профиль для account-профилей (legacy → undefined).
+ */
+async function writeProfileFromRows(
+  ctx: MutationCtx,
+  nick: string,
+  rows: Doc<'data_raw_tmx_submissions'>[],
+  accountXUserId: string | undefined
+): Promise<void> {
   if (rows.length === 0) {
     const stale = await ctx.db
       .query('data_cooked_tmx_profiles')
@@ -182,6 +212,7 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
     cliVersion: newestRow.cliVersion,
     suspicious,
     subscriptionUsd: newestRow.subscriptionUsd,
+    account_x_user_id: accountXUserId,
     updatedAt: now,
   }
 

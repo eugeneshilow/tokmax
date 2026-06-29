@@ -1,6 +1,7 @@
 import { httpRouter, makeFunctionReference } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { TMX_VALUE_HARD_CAP_USD } from './lib/tmx'
+import { randomToken } from './lib/x_auth'
 
 // ===========================================================================
 // tokenmax self-serve platform (L2) — публичный self-serve приём (ISOLATED).
@@ -51,6 +52,7 @@ type TmxPublishArgs = {
   ipHash: string
   providedSecretHash: string | null
   candidateSecretHash: string
+  account_x_user_id: string | null
   subscriptionUsd?: number
 }
 
@@ -74,6 +76,26 @@ type TmxPublishResult =
 const tmxPublish = makeFunctionReference<'mutation', TmxPublishArgs, TmxPublishResult>(
   'tables/data_raw_tmx_submissions:publish'
 )
+
+// "Sign in with X" — internal-функции БД для Bearer-публикации, loopback-redeem
+// и logout/revoke. makeFunctionReference (без зависимости от codegen).
+const tmxAccountByTokenHash = makeFunctionReference<
+  'query',
+  { token_hash: string },
+  { x_user_id: string; handle: string } | null
+>('tables/biz_tmx_accounts:getByTokenHash')
+
+const tmxRevokeByTokenHash = makeFunctionReference<
+  'mutation',
+  { token_hash: string },
+  { ok: boolean }
+>('tables/biz_tmx_accounts:revokeByTokenHash')
+
+const tmxRedeemSession = makeFunctionReference<
+  'mutation',
+  { exchange_code_hash: string; cli_nonce: string; token_hash: string },
+  { ok: true; handle: string } | { ok: false }
+>('tables/data_raw_tmx_auth_sessions:redeemSession')
 
 async function tmxSha256Hex(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input)
@@ -229,6 +251,26 @@ http.route({
     }
     const ipHash = await tmxSha256Hex(`${salt}:${ip}`)
 
+    // "Sign in with X" path: Bearer account-токен → резолвим аккаунт по
+    // SHA-256(token). Найден → публикуем под handle аккаунта (account_x_user_id),
+    // legacy capability-secret игнорируется. Не найден → 401 (токен невалиден/
+    // отозван), мутацию не зовём. Нет Bearer → legacy путь (как раньше).
+    const authHeader = request.headers.get('authorization') ?? ''
+    const bearer = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : null
+    let accountXUserId: string | null = null
+    let accountNick: string | null = null
+    if (bearer) {
+      const tokenHash = await tmxSha256Hex(bearer)
+      const account = await ctx.runQuery(tmxAccountByTokenHash, { token_hash: tokenHash })
+      if (!account) {
+        return tmxJson({ ok: false, reason: 'unauthorized' }, 401)
+      }
+      accountXUserId = account.x_user_id
+      accountNick = account.handle
+    }
+
     const providedSecret =
       typeof body.secret === 'string' && body.secret.length > 0 ? body.secret : null
     const providedSecretHash = providedSecret ? await tmxSha256Hex(providedSecret) : null
@@ -236,7 +278,9 @@ http.route({
     const candidateSecretHash = await tmxSha256Hex(newSecret)
 
     const result = await ctx.runMutation(tmxPublish, {
-      nick: body.nick,
+      // Account-путь: ник всегда = handle аккаунта (нельзя выдать себя за другой
+      // ник). Legacy: ник из тела.
+      nick: accountNick ?? body.nick,
       cliVersion: typeof body.cliVersion === 'string' ? body.cliVersion.slice(0, 40) : 'unknown',
       pricingVersion:
         typeof body.pricingVersion === 'string' ? body.pricingVersion.slice(0, 40) : 'unknown',
@@ -253,6 +297,7 @@ http.route({
       ipHash,
       providedSecretHash,
       candidateSecretHash,
+      account_x_user_id: accountXUserId,
       subscriptionUsd:
         typeof body.subscriptionUsd === 'number' &&
         Number.isFinite(body.subscriptionUsd) &&
@@ -302,9 +347,67 @@ http.route({
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     })
+  }),
+})
+
+// ===========================================================================
+// "Sign in with X" — loopback CLI endpoints (server-to-server).
+// ===========================================================================
+
+// redeem: CLI loopback POST'ит сюда {exchange_code, cli_nonce}. Реальный
+// account-токен возвращается в ТЕЛЕ ответа (никогда в URL). Сервер генерит
+// высокоэнтропийный токен, хранит только его SHA-256, отдаёт plaintext один раз.
+http.route({
+  path: '/api/auth/x/redeem',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    let body: Record<string, unknown>
+    try {
+      body = (await request.json()) as Record<string, unknown>
+    } catch {
+      return tmxJson({ ok: false, reason: 'invalid_json' }, 400)
+    }
+    const exchangeCode = typeof body.exchange_code === 'string' ? body.exchange_code : ''
+    const cliNonce = typeof body.cli_nonce === 'string' ? body.cli_nonce : ''
+    if (!exchangeCode || !cliNonce) {
+      return tmxJson({ ok: false, reason: 'invalid_payload' }, 400)
+    }
+
+    const exchangeCodeHash = await tmxSha256Hex(exchangeCode)
+    // Высокоэнтропийный отзываемый account-токен; храним только хеш.
+    const token = randomToken(32)
+    const tokenHash = await tmxSha256Hex(token)
+
+    const result = await ctx.runMutation(tmxRedeemSession, {
+      exchange_code_hash: exchangeCodeHash,
+      cli_nonce: cliNonce,
+      token_hash: tokenHash,
+    })
+    if (!result.ok) {
+      return tmxJson({ ok: false, reason: 'invalid_or_expired' }, 400)
+    }
+    return tmxJson({ ok: true, token, handle: result.handle }, 200)
+  }),
+})
+
+// revoke (logout): CLI шлёт Authorization: Bearer <token>; обнуляем token_hash
+// аккаунта (best-effort — всегда ok, чтобы не утекала инфа о валидности токена).
+http.route({
+  path: '/api/auth/x/revoke',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const authHeader = request.headers.get('authorization') ?? ''
+    const bearer = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : null
+    if (bearer) {
+      const tokenHash = await tmxSha256Hex(bearer)
+      await ctx.runMutation(tmxRevokeByTokenHash, { token_hash: tokenHash })
+    }
+    return tmxJson({ ok: true }, 200)
   }),
 })
 

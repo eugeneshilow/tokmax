@@ -80,6 +80,11 @@ export const vTmxPublishArgs = {
   ipHash: v.string(),
   providedSecretHash: v.union(v.string(), v.null()),
   candidateSecretHash: v.string(),
+  // "Sign in with X": если публикация авторизована Bearer account-токеном —
+  // immutable x_user_id владельца (http резолвит токен → аккаунт). Тогда путь
+  // идёт по identity (без capability-secret/claim), а ник = handle аккаунта.
+  // null = legacy анонимная публикация (capability-secret).
+  account_x_user_id: v.union(v.string(), v.null()),
   // Опциональная подписка $/мес (из онбординга) для economics-блока профиля.
   subscriptionUsd: v.optional(v.number()),
 }

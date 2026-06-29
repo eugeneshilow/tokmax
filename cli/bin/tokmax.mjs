@@ -22,7 +22,8 @@ import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
 import { aggregateSources, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
-import { loadSecret, saveSecret } from '../src/secrets.mjs';
+import { loadSecret, saveSecret, loadAuth } from '../src/secrets.mjs';
+import { login, logout } from '../src/auth.mjs';
 
 const DEFAULT_API = 'https://chatty-boar-479.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
@@ -41,6 +42,7 @@ function parseArgs(argv) {
     yes: false,
     onboard: false,
     help: false,
+    bearer: null, // "Sign in with X" account token (set in main if logged in)
   };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
@@ -90,6 +92,8 @@ const HELP = `tokmax — публичный счётчик API-equivalent рас
 Запуск:
   npx tokmax            короткий онбординг (2 шага, прогресс-бар)
   npx tokmax <nick>     быстрый прямой путь без вопросов
+  npx tokmax login      войти через X (Sign in with X) — ник = твой @handle
+  npx tokmax logout     выйти на этой машине (удалить токен)
 
 Options:
   --since YYYY-MM-DD   считать только с этого дня (по умолчанию — вся история)
@@ -276,10 +280,52 @@ async function runOnboarding(cliVersion) {
   return config;
 }
 
+// ── Auth subcommands ──────────────────────────────────────────────────────────
+
+function resolveApiBase(rawArgs) {
+  const i = rawArgs.indexOf('--api');
+  if (i >= 0 && rawArgs[i + 1]) return rawArgs[i + 1].replace(/\/+$/, '');
+  return DEFAULT_API;
+}
+
+async function loginCmd(apiBase) {
+  console.log('tokmax · Sign in with X');
+  try {
+    const { handle, file } = await login(apiBase);
+    console.log(`\n✓ Вошёл как @${handle || '?'}`);
+    console.log(`Токен сохранён: ${file} (chmod 600).`);
+    console.log(
+      'Теперь `npx tokmax` публикует под этим X-аккаунтом — вторая машина с тем же логином сольётся автоматически (без --key).',
+    );
+    return 0;
+  } catch (err) {
+    console.error(`Не удалось войти: ${err && err.message ? err.message : err}`);
+    return 1;
+  }
+}
+
+async function logoutCmd(apiBase) {
+  const auth = await loadAuth();
+  if (!auth) {
+    console.log('Вход не выполнен — нечего удалять.');
+    return 0;
+  }
+  await logout(apiBase, auth.token);
+  console.log(`Вышел${auth.handle ? ` (@${auth.handle})` : ''}. Локальный токен удалён.`);
+  return 0;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const rawArgs = process.argv.slice(2);
+
+  // Subcommands must be intercepted before nick parsing (else "login" would be
+  // read as a nick).
+  if (rawArgs[0] === 'login') return loginCmd(resolveApiBase(rawArgs));
+  if (rawArgs[0] === 'logout') return logoutCmd(resolveApiBase(rawArgs));
+
+  const opts = parseArgs(rawArgs);
 
   if (opts.help) {
     console.log(HELP);
@@ -287,6 +333,16 @@ async function main() {
   }
 
   const cliVersion = await readPackageVersion();
+
+  // "Sign in with X": if logged in, publish under the X handle (bearer token).
+  // First-run `npx tokmax` WITHOUT login keeps the legacy nick+capability path.
+  const auth = await loadAuth();
+  if (auth) {
+    opts.bearer = auth.token;
+    // No explicit nick → use the X handle and skip the nick onboarding. The
+    // server overrides the nick with the account handle regardless.
+    if (!opts.nick) opts.nick = auth.handle || null;
+  }
 
   // No nick + interactive terminal (or --onboard) → run the onboarding.
   if (opts.onboard || (!opts.nick && process.stdin.isTTY)) {
@@ -404,20 +460,26 @@ async function main() {
     return 0;
   }
 
-  // Capability token: explicit --key wins, else a saved secret for this nick.
-  const savedSecret = await loadSecret(nickKey);
-  const secret = opts.key || savedSecret;
-  if (secret) body.secret = secret;
+  // "Sign in with X": if logged in, the account token (bearer) authorizes the
+  // publish and the server uses the X handle as the nick — no capability secret.
+  // Otherwise fall back to the legacy capability token (explicit --key wins,
+  // else a saved secret for this nick).
+  if (!opts.bearer) {
+    const savedSecret = await loadSecret(nickKey);
+    const secret = opts.key || savedSecret;
+    if (secret) body.secret = secret;
+  }
 
   if (!opts.yes) {
-    const ok = await confirm(`Опубликовать как ${nick}? [y/N] `);
+    const who = opts.bearer ? `@${nick} (через X)` : nick;
+    const ok = await confirm(`Опубликовать как ${who}? [y/N] `);
     if (!ok) {
       console.log('Отменено.');
       return 0;
     }
   }
 
-  const { status, json } = await publish(opts.api, body);
+  const { status, json } = await publish(opts.api, body, opts.bearer);
 
   if (!json) {
     console.error(`Неожиданный ответ сервера: HTTP ${status}`);
@@ -425,7 +487,11 @@ async function main() {
   }
 
   if (json.ok) {
-    if (json.created && json.secret) {
+    if (opts.bearer) {
+      // "Sign in with X": no capability secret to store — the account token owns
+      // the nick. Multiple machines on the same X login auto-combine.
+      console.log(`\nОпубликовано под X-аккаунтом @${json.nick || nick}.`);
+    } else if (json.created && json.secret) {
       const file = await saveSecret(nickKey, {
         nick: json.nick || nickKey,
         secret: json.secret,
@@ -465,6 +531,9 @@ async function main() {
       return 1;
     case 'invalid_payload':
       console.error(`Некорректное тело запроса: ${json.message || ''}`);
+      return 1;
+    case 'unauthorized':
+      console.error('Токен X недействителен или отозван. Войди заново: npx tokmax login');
       return 1;
     default:
       console.error(`Ошибка публикации (HTTP ${status}): ${JSON.stringify(json)}`);
