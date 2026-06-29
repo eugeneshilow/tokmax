@@ -377,7 +377,8 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                     </div>
                   </div>
                   <p className="mt-3 text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                    {formatUsdPrecise(econ.sub)}/mo plan → {formatUsdPrecise(viewCost)} of API value.
+                    {formatUsdPrecise(econ.sub)}/mo plan → {formatUsdPrecise(viewCost)}
+                    {' '}of API value.
                     You&apos;re up {econ.ratio.toFixed(1)}× 🔥
                   </p>
                 </div>

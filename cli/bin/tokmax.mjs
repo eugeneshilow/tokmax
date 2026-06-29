@@ -92,6 +92,12 @@ function parseArgs(argv) {
       case '--machine':
         opts.machine = argv[++i];
         break;
+      case '--subscriptionUsd':
+      case '--sub': {
+        const v = Number((argv[++i] || '').replace(/[^0-9.]/g, ''));
+        if (Number.isFinite(v) && v > 0) opts.subscriptionUsd = v;
+        break;
+      }
       case '--dry-run':
         opts.dryRun = true;
         break;
