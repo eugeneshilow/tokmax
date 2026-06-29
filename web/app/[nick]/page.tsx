@@ -25,6 +25,7 @@ export const revalidate = 0
 
 type TmxNickPageProps = {
   params: Promise<{ nick: string }>
+  searchParams: Promise<{ period?: string }>
 }
 
 const SELF_SERVE_ONELINER = 'npx tokmax'
@@ -37,6 +38,15 @@ function fmtDate(iso: string): string {
   const [y, m, d] = (iso || '').split('-').map(Number)
   if (!y || !m || !d || m < 1 || m > 12) return iso
   return `${MONTHS[m - 1]} ${d}, ${y}`
+}
+
+// Period token → human label: "all" | "YYYY" | "YYYY-MM".
+function periodLabel(period: string): string {
+  if (period === 'all') return 'All-time'
+  if (/^\d{4}$/.test(period)) return period
+  const [y, m] = period.split('-').map(Number)
+  if (!y || !m || m < 1 || m > 12) return period
+  return `${MONTHS[m - 1]} ${y}`
 }
 
 export async function generateMetadata({ params }: TmxNickPageProps): Promise<Metadata> {
@@ -79,19 +89,52 @@ export async function generateMetadata({ params }: TmxNickPageProps): Promise<Me
   }
 }
 
-export default async function TmxNickPage({ params }: TmxNickPageProps) {
+export default async function TmxNickPage({ params, searchParams }: TmxNickPageProps) {
   const { nick: rawNick } = await params
   const nick = rawNick.toLowerCase()
   const profile = await loadTmxProfile(nick)
 
   if (!profile) notFound()
 
+  // Период из URL: "all" | "YYYY" | "YYYY-MM". Невалидное → all-time.
+  const { period: rawPeriod } = await searchParams
+  const period =
+    typeof rawPeriod === 'string' && /^(all|\d{4}|\d{4}-\d{2})$/.test(rawPeriod) ? rawPeriod : 'all'
+
+  // Срез по периоду. daily-даты — "YYYY-MM-DD", поэтому startsWith ловит и год, и месяц.
+  // Если в выбранном периоде нет дней (не должно случаться через сгенерированные
+  // опции, но страхуемся) — откатываемся на all-time.
+  const requestedDaily =
+    period === 'all' ? profile.daily : profile.daily.filter((d) => d.date.startsWith(period))
+  const effectivePeriod = period !== 'all' && requestedDaily.length === 0 ? 'all' : period
+  const viewDaily = effectivePeriod === 'all' ? profile.daily : requestedDaily
+  const viewCost =
+    effectivePeriod === 'all'
+      ? profile.costUsd
+      : viewDaily.reduce((s, d) => s + (d.costUsd ?? 0), 0)
+  const viewTokens =
+    effectivePeriod === 'all'
+      ? profile.totalTokens
+      : viewDaily.reduce((s, d) => s + d.totalTokens, 0)
+  const viewFirst = viewDaily.length ? viewDaily[0].date : profile.firstDay
+  const viewLast = viewDaily.length ? viewDaily[viewDaily.length - 1].date : profile.lastDay
+
+  // Опции селектора строим из реальных данных профиля: месяцы и годы из daily[].
+  const monthSet = new Set<string>()
+  const yearSet = new Set<string>()
+  for (const d of profile.daily) {
+    monthSet.add(d.date.slice(0, 7))
+    yearSet.add(d.date.slice(0, 4))
+  }
+  const monthOptions = [...monthSet].sort().reverse()
+  const yearOptions = [...yearSet].sort().reverse()
+
   const shareUrl = `tokmax.vibecoding.tech/${profile.nick}`
   const peakDay =
-    profile.daily.length > 0
-      ? profile.daily.reduce((max, day) => (day.totalTokens > max.totalTokens ? day : max))
+    viewDaily.length > 0
+      ? viewDaily.reduce((max, day) => (day.totalTokens > max.totalTokens ? day : max))
       : null
-  const maxDailyCost = profile.daily.reduce((m, d) => Math.max(m, d.costUsd ?? 0), 0)
+  const maxDailyCost = viewDaily.reduce((m, d) => Math.max(m, d.costUsd ?? 0), 0)
 
   // Экономика подписки: API-equivalent ÷ (подписка/мес × месяцы периода).
   const econ =
@@ -99,12 +142,12 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
       ? (() => {
           const days = Math.max(
             1,
-            Math.round((Date.parse(profile.lastDay) - Date.parse(profile.firstDay)) / 86400000) + 1
+            Math.round((Date.parse(viewLast) - Date.parse(viewFirst)) / 86400000) + 1
           )
           const months = Math.max(1, days / 30)
           const subTotal = profile.subscriptionUsd * months
-          const ratio = subTotal > 0 ? profile.costUsd / subTotal : 0
-          const profit = profile.costUsd - subTotal
+          const ratio = subTotal > 0 ? viewCost / subTotal : 0
+          const profit = viewCost - subTotal
           return { months, subTotal, ratio, profit, sub: profile.subscriptionUsd }
         })()
       : null
@@ -119,13 +162,13 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
     notVerified: 'figure not verified',
     econLabel: 'api ÷ subscription',
     econSentence: econ
-      ? `Subscription ${formatUsdPrecise(econ.sub)}/mo — over this period that's ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(profile.costUsd)} → paid the subscription back ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, saved +${formatUsdPrecise(econ.profit)}` : ''}.`
+      ? `Subscription ${formatUsdPrecise(econ.sub)}/mo — over this period that's ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(viewCost)} → paid the subscription back ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, saved +${formatUsdPrecise(econ.profit)}` : ''}.`
       : '',
     buildYourOwnCta: 'Build your own',
     asideApiEquivalent: 'api-equivalent',
-    asideApiPrice: `${formatUsdPrecise(profile.costUsd)} at API prices`,
+    asideApiPrice: `${formatUsdPrecise(viewCost)} at API prices`,
     asideTokensTotal: 'total tokens',
-    asideTokensCount: `${formatInteger(profile.totalTokens)} tokens`,
+    asideTokensCount: `${formatInteger(viewTokens)} tokens`,
     rowPeriod: 'period',
     rowDays: 'days',
     rowCli: 'cli',
@@ -137,13 +180,13 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
     counterPara:
       'Run one command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and publishes your page. Only aggregates leave the box: no keys, no raw logs.',
     howComputed: "How it's computed",
-    footerEyebrow: `${profile.nick} · ${fmtDate(profile.firstDay)} to ${fmtDate(profile.lastDay)}`,
-    footerTitle: `${formatUsd(profile.costUsd)} at API prices. Screenshot it and drop it in chat.`,
+    footerEyebrow: `${profile.nick} · ${fmtDate(viewFirst)} to ${fmtDate(viewLast)}`,
+    footerTitle: `${formatUsd(viewCost)} at API prices. Screenshot it and drop it in chat.`,
     statApiEquivalentDetail: 'what this usage would cost at API prices, not on a subscription',
     statTotalTokensLabel: 'Total tokens',
-    statTotalTokensDetail: `${formatInteger(profile.totalTokens)} tokens across Codex + Claude Code`,
+    statTotalTokensDetail: `${formatInteger(viewTokens)} tokens across Codex + Claude Code`,
     statPeriodLabel: 'Period',
-    statPeriodDetail: `${fmtDate(profile.firstDay)} to ${fmtDate(profile.lastDay)} · ${profile.daily.length} days`,
+    statPeriodDetail: `${fmtDate(viewFirst)} to ${fmtDate(viewLast)} · ${viewDaily.length} days`,
     statPeakLabel: 'Peak day',
     statPeakDetail: peakDay ? `${fmtDate(peakDay.date)}: hottest day` : 'no daily data',
     attribution: 'Prices: LiteLLM · Counting: ccusage',
@@ -152,19 +195,19 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
   const statCards = [
     {
       label: 'API-equivalent',
-      value: formatUsdPrecise(profile.costUsd),
+      value: formatUsdPrecise(viewCost),
       detail: t.statApiEquivalentDetail,
       icon: Flame,
     },
     {
       label: t.statTotalTokensLabel,
-      value: formatCompactNumber(profile.totalTokens),
+      value: formatCompactNumber(viewTokens),
       detail: t.statTotalTokensDetail,
       icon: Gauge,
     },
     {
       label: t.statPeriodLabel,
-      value: fmtDate(profile.firstDay),
+      value: fmtDate(viewFirst),
       detail: t.statPeriodDetail,
       icon: ReceiptText,
     },
@@ -175,6 +218,13 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
       icon: Zap,
     },
   ]
+
+  // Пилюли периода: активная — оранжевая, остальные — приглушённые (тёмный hero).
+  function pillClass(active: boolean): string {
+    return active
+      ? 'inline-flex h-8 items-center rounded-full bg-[#FF7A1A] px-3 font-mono text-[12px] font-bold text-black'
+      : 'inline-flex h-8 items-center rounded-full border border-white/20 px-3 font-mono text-[12px] font-bold text-[#D2D2D7] transition-colors hover:border-white/50 hover:text-white'
+  }
 
   return (
     <div className="bg-[#F5F5F7] text-[#1D1D1F] [font-variant-numeric:tabular-nums]">
@@ -223,15 +273,49 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             <h1 className="mt-6 max-w-5xl text-balance text-[42px] font-black leading-[0.92] tracking-normal text-white sm:text-[60px] lg:text-[78px]">
               {profile.nick} burned
               <br />
-              <span className="text-[#FF7A1A]">{formatUsd(profile.costUsd)}</span> at API prices.
+              <span className="text-[#FF7A1A]">{formatUsd(viewCost)}</span> at API prices.
             </h1>
 
             {/* Subline: tokens + sources + period. */}
             <p className="mt-5 max-w-3xl text-[16px] font-semibold leading-7 text-[#D2D2D7] md:text-[19px] md:leading-8">
-              {formatInteger(profile.totalTokens)} tokens across Codex + Claude Code
+              {formatInteger(viewTokens)} tokens across Codex + Claude Code
               <span className="text-[#6E6E73]"> · </span>
-              {fmtDate(profile.firstDay)} – {fmtDate(profile.lastDay)}
+              {fmtDate(viewFirst)} – {fmtDate(viewLast)}
             </p>
+
+            {/* Period selector: какой период отражают цифры страницы. Ссылки на
+                ?period=… держат серверный компонент (force-dynamic). Опции — из
+                реальных данных профиля. */}
+            {monthOptions.length > 0 ? (
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#6E6E73]">
+                  period
+                </span>
+                <Link href={`/${profile.nick}?period=all`} className={pillClass(effectivePeriod === 'all')}>
+                  {periodLabel('all')}
+                </Link>
+                {yearOptions.length > 1
+                  ? yearOptions.map((y) => (
+                      <Link
+                        key={y}
+                        href={`/${profile.nick}?period=${y}`}
+                        className={pillClass(effectivePeriod === y)}
+                      >
+                        {periodLabel(y)}
+                      </Link>
+                    ))
+                  : null}
+                {monthOptions.map((m) => (
+                  <Link
+                    key={m}
+                    href={`/${profile.nick}?period=${m}`}
+                    className={pillClass(effectivePeriod === m)}
+                  >
+                    {periodLabel(m)}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
 
             {/* BIG command — the screenshot-zone CTA: run this, get your own page. */}
             <div className="mt-6 inline-flex items-center gap-3 rounded-xl border border-white/25 bg-[#0E0E0E] px-5 py-4">
@@ -246,8 +330,9 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </span>
             </div>
 
-            {/* Rank: the leaderboard brag. */}
-            {rank ? (
+            {/* Rank: the leaderboard brag. All-time only — период не должен
+                показывать all-time ранг как ранг периода. */}
+            {effectivePeriod === 'all' && rank ? (
               <Link
                 href="/leaderboard"
                 className="mt-5 inline-flex h-11 items-center gap-2 rounded-lg border border-[#FF7A1A]/50 bg-[#FF7A1A]/12 px-4 text-[16px] font-black text-[#FFB877] transition-colors hover:bg-[#FF7A1A]/20"
@@ -338,7 +423,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 <Flame className="h-5 w-5 text-[#FF7A1A]" />
               </div>
               <p className="mt-3 text-[54px] font-black leading-[0.85] text-[#FF7A1A] md:text-[64px]">
-                {formatUsd(profile.costUsd)}
+                {formatUsd(viewCost)}
               </p>
               <p className="mt-3 text-[13px] font-semibold text-[#A1A1A6]">
                 {t.asideApiPrice}
@@ -353,7 +438,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 <Gauge className="h-5 w-5 text-[#3861FB]" />
               </div>
               <p className="mt-3 text-[34px] font-black leading-none text-[#7DA2FF] md:text-[42px]">
-                {formatCompactNumber(profile.totalTokens)}
+                {formatCompactNumber(viewTokens)}
               </p>
               <p className="mt-3 text-[13px] font-bold text-[#9DBBFF]">
                 {t.asideTokensCount}
@@ -364,12 +449,12 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               <div className="flex items-center justify-between gap-4">
                 <span>{t.rowPeriod}</span>
                 <span className="text-[#D2D2D7]">
-                  {fmtDate(profile.firstDay)} — {fmtDate(profile.lastDay)}
+                  {fmtDate(viewFirst)} — {fmtDate(viewLast)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span>{t.rowDays}</span>
-                <span className="text-[#D2D2D7]">{profile.daily.length}</span>
+                <span className="text-[#D2D2D7]">{viewDaily.length}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span>{t.rowCli}</span>
@@ -389,7 +474,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         </div>
       </section>
 
-      {profile.daily.length > 0 ? (
+      {viewDaily.length > 0 ? (
         <section className="border-b border-[#D2D2D7] bg-[#F5F8FC]">
           <div className="mx-auto max-w-[1680px] px-4 py-6 md:px-6">
             <SectionHeader
@@ -404,7 +489,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             />
             <div className="mt-4 grid gap-2">
               {/* Новые дни сверху: проектор хранит daily по возрастанию даты — реверсим. */}
-              {[...profile.daily].reverse().map((day) => (
+              {[...viewDaily].reverse().map((day) => (
                 <DailyBar key={day.date} day={day} max={maxDailyCost} />
               ))}
             </div>
@@ -538,7 +623,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[14px] font-black">
             <span className="rounded-lg bg-[#1A1206] px-3 py-2 text-[#FF7A1A]">
-              {formatUsdPrecise(profile.costUsd)}
+              {formatUsdPrecise(viewCost)}
             </span>
             <span className="rounded-lg border border-[#D2D2D7] px-3 py-2">{shareUrl}</span>
             <span className="rounded-lg bg-[#1D1D1F] px-3 py-2 text-white">tokenmax</span>
