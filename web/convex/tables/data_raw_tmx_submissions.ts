@@ -167,6 +167,14 @@ export const publish = internalMutation({
     let created = false
     if (isAccount) {
       // identity-путь: claim не нужен. created=false → http не вернёт secret.
+      // #1 reclaim: верифицированный X-владелец отжимает свой хендл — сносим
+      // stale anon-claim, если этот ник раньше был занят legacy-публикацией
+      // (анонимный секрет инвалидируется; cooked-профиль перезапишется ниже).
+      const staleClaim = await ctx.db
+        .query('ops_tmx_claims')
+        .withIndex('by_nick', (q) => q.eq('nick', nick))
+        .unique()
+      if (staleClaim) await ctx.db.delete(staleClaim._id)
     } else {
       const claim = await ctx.db
         .query('ops_tmx_claims')

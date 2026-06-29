@@ -203,6 +203,11 @@ export default async function TmxLeaderboardPage({
                             {row.nick}
                             <ArrowUpRight className="h-3.5 w-3.5 opacity-50" />
                           </Link>
+                          {!row.verified ? (
+                            <span className="ml-1 rounded bg-[#ECECEF] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A9AA0]">
+                              unverified
+                            </span>
+                          ) : null}
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right font-black text-[#FF7A1A]" title={formatUsdPrecise(row.costUsd)}>

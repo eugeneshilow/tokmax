@@ -209,6 +209,14 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </div>
             ) : null}
 
+            {/* #2: анонимные (не X-verified) профили помечаем явно — чужой хендл здесь не доказан. */}
+            {!profile.verified ? (
+              <div className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-mono text-[12px] font-bold uppercase tracking-[0.08em] text-[#9A9AA0]">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                unverified · anonymous (not signed in with X)
+              </div>
+            ) : null}
+
             {/* Hero stat: nick + the huge orange number. */}
             <h1 className="mt-6 max-w-5xl text-balance text-[42px] font-black leading-[0.92] tracking-normal text-white sm:text-[60px] lg:text-[78px]">
               {profile.nick} burned
