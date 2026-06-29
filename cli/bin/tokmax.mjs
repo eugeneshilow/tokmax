@@ -571,6 +571,21 @@ async function runPipeline(opts, cliVersion, { interactive }) {
       console.log('⚠️  The server flagged this submission as suspicious (manual review).');
     }
     console.log(`\n  Done! Your page: ${json.url}\n`);
+
+    // Пошаговая инструкция: добавить ещё один источник (комп/сервак) — дашборд суммирует все.
+    console.log('  ── Add another computer / server (your dashboard sums them all) ──');
+    if (opts.bearer) {
+      console.log('  On the other machine, run two commands:');
+      console.log('    1)  npx tokmax login      ← sign in with the SAME X account');
+      console.log('    2)  npx tokmax            ← publishes that machine');
+      console.log(`  That's it — it merges into ${json.url} automatically (no keys to copy).\n`);
+    } else {
+      console.log('  On the other machine, run (same nick + your capability token):');
+      console.log(`    npx tokmax ${json.nick || nick} --key <your-token>`);
+      console.log(`  Your token is saved on THIS machine at ~/.config/tokenmax/${json.nick || nick}.json`);
+      console.log(`  Both machines then sum into ${json.url}.`);
+      console.log('  Tip: "Sign in with X" is simpler — then any machine just needs the same login, no token.\n');
+    }
     return { code: 0, published: true };
   }
 
