@@ -136,21 +136,21 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
       : null
   const maxDailyCost = viewDaily.reduce((m, d) => Math.max(m, d.costUsd ?? 0), 0)
 
-  // Экономика подписки: API-equivalent ÷ (подписка/мес × месяцы периода).
-  const econ =
-    profile.subscriptionUsd && profile.subscriptionUsd > 0
-      ? (() => {
-          const days = Math.max(
-            1,
-            Math.round((Date.parse(viewLast) - Date.parse(viewFirst)) / 86400000) + 1
-          )
-          const months = Math.max(1, days / 30)
-          const subTotal = profile.subscriptionUsd * months
-          const ratio = subTotal > 0 ? viewCost / subTotal : 0
-          const profit = viewCost - subTotal
-          return { months, subTotal, ratio, profit, sub: profile.subscriptionUsd }
-        })()
-      : null
+  // PROFIT/× = THIS MONTH only. It's the one period where the plan is reliably known
+  // (historical plan changes aren't recorded anywhere — an all-time savings figure would
+  // be a guess). So we compare ONE month of burn to ONE month of the current plan price;
+  // no subscription-purchase date is needed. Resets monthly = recurring flex.
+  const econ = (() => {
+    if (!profile.subscriptionUsd || profile.subscriptionUsd <= 0 || profile.daily.length === 0)
+      return null
+    const month = profile.daily[profile.daily.length - 1].date.slice(0, 7) // latest YYYY-MM
+    const monthBurn = profile.daily
+      .filter((d) => d.date.startsWith(month))
+      .reduce((s, d) => s + (d.costUsd ?? 0), 0)
+    const sub = profile.subscriptionUsd
+    const ratio = sub > 0 ? monthBurn / sub : 0
+    return { month, monthBurn, sub, ratio, profit: monthBurn - sub }
+  })()
 
   // Ранг в лидерборде (фидбек @nikmcfly: «без лидерборда я как лох со ссылкой»).
   const board = await loadTmxLeaderboard(200)
@@ -160,10 +160,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   // English-only copy.
   const t = {
     notVerified: 'figure not verified',
-    econLabel: 'api ÷ subscription',
-    econSentence: econ
-      ? `Subscription ${formatUsdPrecise(econ.sub)}/mo — over this period that's ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(viewCost)} → paid the subscription back ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, saved +${formatUsdPrecise(econ.profit)}` : ''}.`
-      : '',
     buildYourOwnCta: 'Build your own',
     asideApiEquivalent: 'api-equivalent',
     asideApiPrice: `${formatUsdPrecise(viewCost)} at API prices`,
@@ -283,6 +279,11 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               {fmtDate(viewFirst)} – {fmtDate(viewLast)}
             </p>
 
+            {/* Methodology in the screenshot zone (owner: trust on every screenshot). */}
+            <p className="mt-2 font-mono text-[12px] font-bold uppercase tracking-[0.08em] text-[#8A8A8F]">
+              📊 counted with ccusage · priced at LiteLLM API rates
+            </p>
+
             {/* Period selector: какой период отражают цифры страницы. Ссылки на
                 ?period=… держат серверный компонент (force-dynamic). Опции — из
                 реальных данных профиля. */}
@@ -356,12 +357,12 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               econ.profit >= 0 ? (
                 <div className="mt-6 max-w-2xl overflow-hidden rounded-2xl border-2 border-[#18D86B]/60 bg-gradient-to-br from-[#0B2417] to-[#06160D] px-6 py-5 shadow-[0_0_44px_-8px_rgba(24,216,107,0.55)]">
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#9EFFBF]">
-                    🤑 you beat your subscription
+                    🤑 {periodLabel(econ.month)} · you beat your subscription
                   </p>
                   <div className="mt-2 flex flex-wrap items-end gap-x-10 gap-y-3">
                     <div>
                       <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-[#6BE39A]">
-                        profit
+                        profit this month
                       </p>
                       <p className="text-[46px] font-black leading-none text-[#1BE673] [text-shadow:0_0_22px_rgba(27,230,115,0.65)] sm:text-[58px]">
                         +{formatUsd(econ.profit)}
@@ -377,22 +378,21 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                     </div>
                   </div>
                   <p className="mt-3 text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                    {formatUsdPrecise(econ.sub)}/mo plan → {formatUsdPrecise(viewCost)}
-                    {' '}of API value.
-                    You&apos;re up {econ.ratio.toFixed(1)}× 🔥
+                    {formatUsdPrecise(econ.monthBurn)} of API value this month on your{' '}
+                    {formatUsdPrecise(econ.sub)}/mo plan. You&apos;re up {econ.ratio.toFixed(1)}× 🔥
                   </p>
                 </div>
               ) : (
                 <div className="mt-6 max-w-2xl rounded-2xl border border-[#FF7A1A]/45 bg-[#FF7A1A]/10 px-6 py-5">
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#FFB877]">
-                    🔥 room to burn
+                    🔥 {periodLabel(econ.month)} · room to burn
                   </p>
                   <p className="mt-2 text-[30px] font-black leading-none text-[#FF7A1A] sm:text-[36px]">
-                    {formatUsd(viewCost)} of {formatUsd(econ.subTotal)}
+                    {formatUsd(econ.monthBurn)} of {formatUsd(econ.sub)}
                   </p>
                   <p className="mt-2 text-[14px] font-semibold leading-6 text-[#F2C9A8]">
-                    {formatUsdPrecise(econ.sub)}/mo plan — you&apos;re at {econ.ratio.toFixed(1)}× so
-                    far. Keep going.
+                    {formatUsdPrecise(econ.sub)}/mo plan — you&apos;re at {econ.ratio.toFixed(1)}× this
+                    month. Keep going.
                   </p>
                 </div>
               )

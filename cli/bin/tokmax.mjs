@@ -31,6 +31,7 @@ import { loadSecret, saveSecret, loadAuth, deleteAuth } from '../src/secrets.mjs
 import { login, logout } from '../src/auth.mjs';
 import { startProgress } from '../src/progress.mjs';
 import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
+import { detectSubscription } from '../src/plan.mjs';
 
 const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
@@ -614,33 +615,29 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
   console.log(ATTRIBUTION);
 
-  // Capture the subscription cheaply (presets) so the page shows the dopamine PROFIT/×.
-  // Ask once, only when interactive and not already known (skips daily/--yes/dry paths).
-  if (interactive && !opts.yes && !opts.subscriptionUsd) {
-    console.log('\n💸 What do you pay per month for AI coding? (we show how many × you beat it)');
-    console.log('   [1] $20  ·  [2] $100  ·  [3] $200  ·  [4] custom  ·  [Enter] skip');
-    const pick = await promptLine('   choice: ');
-    const preset = { 1: 20, 2: 100, 3: 200 }[pick];
-    if (preset) {
-      opts.subscriptionUsd = preset;
-    } else if (pick === '4') {
-      const c = await promptLine('   $/mo: ');
-      const n = Number(c.replace(/[^0-9.]/g, ''));
-      if (Number.isFinite(n) && n > 0) opts.subscriptionUsd = n;
+  // Subscription: AUTO-DETECT from local plan config — no asking (owner: «спрашивать
+  // это залупа»). We read only the plan TIER locally (e.g. Claude Max 20× / ChatGPT Pro)
+  // and map it to retail $/mo; tokens are never read out or sent. `--sub <usd>` overrides.
+  if (!opts.subscriptionUsd) {
+    const det = await detectSubscription();
+    if (det) {
+      opts.subscriptionUsd = det.totalUsd;
+      console.log(`\n💸 Detected your plan locally: ${det.label} = $${det.totalUsd}/mo — we'll show how many × you beat it.`);
+      console.log('   (only the plan label + $ are sent, never your tokens · wrong? re-run with --sub <usd>)');
     }
   }
 
-  if (opts.subscriptionUsd && agg.firstDay && agg.lastDay) {
-    const days = Math.max(
-      1,
-      Math.round((Date.parse(agg.lastDay) - Date.parse(agg.firstDay)) / 86400000) + 1,
-    );
-    const months = Math.max(1, days / 30);
-    const subTotal = opts.subscriptionUsd * months;
-    const ratio = subTotal > 0 ? usd / subTotal : 0;
+  // PROFIT/× shown for THIS MONTH only (the period where the plan is reliably known);
+  // matches the page. One month of burn vs one month of the plan price — no purchase
+  // date needed, no guessing the historical plan.
+  if (opts.subscriptionUsd && daily.length) {
+    const month = daily[daily.length - 1].date.slice(0, 7);
+    const monthBurn = daily
+      .filter((d) => d.date.startsWith(month))
+      .reduce((s, d) => s + (d.costUsd || 0), 0);
+    const ratio = opts.subscriptionUsd > 0 ? monthBurn / opts.subscriptionUsd : 0;
     console.log(
-      `Subscription: $${fmtUsd(opts.subscriptionUsd)}/mo × ${months.toFixed(1)} mo ≈ $${fmtUsd(subTotal)} → ` +
-        `API-equivalent beat the subscription by ${ratio.toFixed(1)}×`,
+      `This month (${month}): $${fmtUsd(monthBurn)} of API value on your $${fmtUsd(opts.subscriptionUsd)}/mo plan → ${ratio.toFixed(1)}× (profit $${fmtUsd(monthBurn - opts.subscriptionUsd)})`,
     );
   }
 
