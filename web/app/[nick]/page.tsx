@@ -31,6 +31,14 @@ const SELF_SERVE_ONELINER = 'npx tokmax'
 const REPO_URL = 'https://github.com/eugeneshilow/tokmax'
 const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax'
 
+// Human-readable date: "2025-09-15" → "Sep 15, 2025" (parsed by parts to avoid TZ shifts).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function fmtDate(iso: string): string {
+  const [y, m, d] = (iso || '').split('-').map(Number)
+  if (!y || !m || !d || m < 1 || m > 12) return iso
+  return `${MONTHS[m - 1]} ${d}, ${y}`
+}
+
 export async function generateMetadata({ params }: TmxNickPageProps): Promise<Metadata> {
   const { nick: rawNick } = await params
   const nick = rawNick.toLowerCase()
@@ -44,7 +52,7 @@ export async function generateMetadata({ params }: TmxNickPageProps): Promise<Me
   }
 
   const title = `${profile.nick} burned ${formatUsd(profile.costUsd)} at API prices — tokmax`
-  const description = `${profile.nick} burned ${formatCompactNumber(profile.totalTokens)} tokens across Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} at API prices. ${profile.firstDay} to ${profile.lastDay}.`
+  const description = `${profile.nick} burned ${formatCompactNumber(profile.totalTokens)} tokens across Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} at API prices. ${fmtDate(profile.firstDay)} to ${fmtDate(profile.lastDay)}.`
   const url = `https://tokmax.vibecoding.tech/${profile.nick}`
 
   return {
@@ -132,15 +140,15 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
     counterPara:
       'Run one command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and publishes your page. Only aggregates leave the box: no keys, no raw logs.',
     howComputed: "How it's computed",
-    footerEyebrow: `${profile.nick} · ${profile.firstDay} to ${profile.lastDay}`,
+    footerEyebrow: `${profile.nick} · ${fmtDate(profile.firstDay)} to ${fmtDate(profile.lastDay)}`,
     footerTitle: `${formatUsd(profile.costUsd)} at API prices. Screenshot it and drop it in chat.`,
     statApiEquivalentDetail: 'what this usage would cost at API prices, not on a subscription',
     statTotalTokensLabel: 'Total tokens',
     statTotalTokensDetail: `${formatInteger(profile.totalTokens)} tokens across Codex + Claude Code`,
     statPeriodLabel: 'Period',
-    statPeriodDetail: `${profile.firstDay} to ${profile.lastDay} · ${profile.daily.length} days`,
+    statPeriodDetail: `${fmtDate(profile.firstDay)} to ${fmtDate(profile.lastDay)} · ${profile.daily.length} days`,
     statPeakLabel: 'Peak day',
-    statPeakDetail: peakDay ? `${peakDay.date}: hottest day` : 'no daily data',
+    statPeakDetail: peakDay ? `${fmtDate(peakDay.date)}: hottest day` : 'no daily data',
     attribution: 'Prices: LiteLLM · Counting: ccusage',
   }
 
@@ -159,7 +167,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
     },
     {
       label: t.statPeriodLabel,
-      value: `${profile.firstDay}`,
+      value: fmtDate(profile.firstDay),
       detail: t.statPeriodDetail,
       icon: ReceiptText,
     },
@@ -228,7 +236,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             <p className="mt-5 max-w-3xl text-[16px] font-semibold leading-7 text-[#D2D2D7] md:text-[19px] md:leading-8">
               {formatInteger(profile.totalTokens)} tokens across Codex + Claude Code
               <span className="text-[#6E6E73]"> · </span>
-              {profile.firstDay}–{profile.lastDay}
+              {fmtDate(profile.firstDay)} – {fmtDate(profile.lastDay)}
             </p>
 
             {/* BIG command — the screenshot-zone CTA: run this, get your own page. */}
@@ -362,7 +370,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               <div className="flex items-center justify-between gap-4">
                 <span>{t.rowPeriod}</span>
                 <span className="text-[#D2D2D7]">
-                  {profile.firstDay} — {profile.lastDay}
+                  {fmtDate(profile.firstDay)} — {fmtDate(profile.lastDay)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
@@ -604,7 +612,7 @@ function DailyBar({ day, max }: { day: TmxProfileDaily; max: number }) {
 
   return (
     <div className="grid gap-2 border border-[#D2D2D7] bg-white p-3 md:grid-cols-[116px_1fr_120px] md:items-center">
-      <p className="font-mono text-[13px] font-black">{day.date}</p>
+      <p className="font-mono text-[13px] font-black">{fmtDate(day.date)}</p>
       <div className="h-8 bg-[#F5F5F7]">
         <div className="flex h-8" style={{ width: `${width}%` }}>
           <div className="h-8 bg-[#3861FB]" style={{ width: `${codexWidth}%` }} />
