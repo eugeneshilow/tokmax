@@ -532,15 +532,17 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   }
 
   if (interactive && !opts.yes) {
-    const who = opts.bearer ? `@${nick} (via X)` : nick;
-    const ok = await confirm(`Publish as ${who}? [y/N] `);
+    const who = opts.bearer ? `@${nick}` : nick;
+    const ok = await confirm(
+      `Publish your tokmax page as ${who}?${opts.bearer ? ' (only your @handle labels the page — nothing is posted to X)' : ''} [y/N] `,
+    );
     if (!ok) {
       console.log('Cancelled.');
       return { code: 0, published: false };
     }
   }
 
-  const pubP = startProgress(`Publishing as ${opts.bearer ? `@${nick} (via X)` : nick}`);
+  const pubP = startProgress(`Publishing your tokmax page as ${opts.bearer ? `@${nick}` : nick}`);
   const { status, json } = await publish(opts.api, body, opts.bearer);
 
   if (!json) {
