@@ -18,6 +18,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -33,7 +34,22 @@ import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
 
 const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
+const REPO_URL = 'https://github.com/eugeneshilow/tokmax';
+const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Open a URL in the default browser (best-effort; silent if unavailable).
+function openUrl(url) {
+  try {
+    const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
+    const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function parseArgs(argv) {
   const opts = {
@@ -146,7 +162,9 @@ function readAllStdin() {
   });
 }
 
-function confirm(question) {
+// confirm: Enter alone returns `defaultYes` (so the user can just press Enter to
+// proceed). Explicit y/yes → true; anything else → false.
+function confirm(question, { defaultYes = false } = {}) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
@@ -154,7 +172,9 @@ function confirm(question) {
     });
     rl.question(question, (answer) => {
       rl.close();
-      resolve(/^(y(es)?)$/i.test(answer.trim()));
+      const a = answer.trim();
+      if (a === '') return resolve(defaultYes);
+      resolve(/^(y(es)?)$/i.test(a));
     });
   });
 }
@@ -231,14 +251,13 @@ async function runOnboarding(cliVersion, apiBase) {
 
   try {
     console.log(`\n  tokmax v${cliVersion} — your public token meter`);
+    console.log(`  open source: ${REPO_DISPLAY}`);
     console.log(`  We'll build your page at ${PAGE_BASE.replace('https://', '')}/<nick>.\n`);
 
     // ── Choice: Quick (anonymous) vs Sign in with X ──
     console.log('How do you want to publish?');
     console.log('  [1] Quick (anonymous) — pick a nick, compute, publish  (recommended)');
-    console.log('  [2] Sign in with X    — your tokmax nick becomes your @handle (identity, multi-machine, daily auto-update)');
-    console.log('      Sign-in only READS your @handle to label your page. tokmax never posts to X,');
-    console.log('      never tweets for you, never reads your tweets or DMs.');
+    console.log('  [2] Sign in with X    — your @handle becomes your page name (identity, multi-machine, daily auto-update)');
     const choice = (await ask('  choice [1/2, Enter=1]: ')).trim();
 
     if (choice === '2') {
@@ -338,20 +357,32 @@ function resolveApiBase(rawArgs) {
   return DEFAULT_API;
 }
 
-async function loginCmd(apiBase) {
+async function loginCmd(rawArgs, apiBase) {
   console.log('tokmax · Sign in with X');
+  let handle, file;
   try {
-    const { handle, file } = await login(apiBase);
-    console.log(`\n✓ Signed in as @${handle || '?'}`);
-    console.log(`Token saved: ${file} (chmod 600).`);
-    console.log(
-      'Now `npx tokmax` updates your tokmax page as your @handle — a second machine with the same login merges automatically (no --key). Read-only: nothing is ever posted to X.',
-    );
-    return 0;
+    ({ handle, file } = await login(apiBase));
   } catch (err) {
     console.error(`Sign-in failed: ${err && err.message ? err.message : err}`);
     return 1;
   }
+  console.log(`\n✓ Signed in as @${handle || '?'} — your page name is your @handle.`);
+  console.log(`Token saved: ${file} (chmod 600).`);
+
+  // Login alone isn't the goal — publish THIS machine right away so the page
+  // appears, and any additional machine merges automatically under the same
+  // @handle (no key to copy). This is what makes multi-machine "just work".
+  const auth = await loadAuth();
+  const opts = parseArgs(rawArgs.slice(1)); // drop the 'login' arg, keep any flags
+  opts.bearer = auth?.token;
+  opts.nick = handle || auth?.handle || 'me';
+  opts.sources = opts.sources || { claude: true, codex: true };
+  const cliVersion = await readPackageVersion();
+  const interactive = Boolean(process.stdin.isTTY);
+  console.log('\nNow publishing this machine…\n');
+  const { code, published } = await runPipeline(opts, cliVersion, { interactive });
+  if (published && interactive) await offerDaily();
+  return code;
 }
 
 async function logoutCmd(rawArgs, apiBase) {
@@ -416,7 +447,15 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   const nick = (opts.nick || '').trim();
   const nickKey = nick.toLowerCase();
 
-  console.log(`tokmax v${cliVersion} · nick: ${nick}${opts.bearer ? ' (via X)' : ''}`);
+  console.log(`tokmax v${cliVersion} · open source: ${REPO_DISPLAY}`);
+  console.log(`nick: ${nick}${opts.bearer ? ' (via X)' : ''}`);
+
+  // Step counter — total adapts to the scenario (dry-run skips the publish step).
+  // The tag is captured once per step so it shows on BOTH the running spinner and
+  // the final ✓ line (a fast run would otherwise hide the number).
+  const STEPS = opts.dryRun ? 2 : 3;
+  let stepN = 0;
+  const stepTag = () => `[${++stepN}/${STEPS}]`;
 
   // 1. Scan local logs (with progress).
   const sources = opts.sources || { claude: true, codex: true };
@@ -425,7 +464,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     console.error('No sources selected.');
     return { code: 1, published: false };
   }
-  const scanP = startProgress('Scanning local Codex + Claude Code logs');
+  const scanTag = stepTag();
+  const scanP = startProgress(`${scanTag} Scanning local Codex + Claude Code logs`);
   let done = 0;
   const tick = () => scanP.update((++done / total) * 100);
   const tasks = [];
@@ -447,10 +487,11 @@ async function runPipeline(opts, cliVersion, { interactive }) {
         : `Codex: ${w.r.sessionCount} sessions`,
     )
     .join(' · ');
-  scanP.succeed(`Scanned local logs — ${scanSummary}`);
+  scanP.succeed(`${scanTag} Scanned local logs — ${scanSummary}`);
 
   // 2. Aggregate + compute the API-equivalent $ (with progress).
-  const computeP = startProgress('Computing the API-equivalent');
+  const computeTag = stepTag();
+  const computeP = startProgress(`${computeTag} Computing the API-equivalent`);
   computeP.update(20);
   const agg = aggregate(scanned, { since: opts.since });
   if (!agg.models.length || agg.totalTokens === 0) {
@@ -470,7 +511,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   const dailyCost = aggregateDailyCost(agg.dailyModels, rateMap);
   const daily = agg.daily.map((d) => ({ ...d, costUsd: dailyCost.get(d.date) ?? 0 }));
   computeP.update(100);
-  computeP.succeed(`Computed API-equivalent: $${fmtUsd(usd)}`);
+  computeP.succeed(`${computeTag} Computed API-equivalent: $${fmtUsd(usd)}`);
 
   console.log(
     `Period: ${agg.firstDay} → ${agg.lastDay}` +
@@ -499,7 +540,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     );
   }
 
-  console.log('Only the aggregate (numbers) leaves this machine — never logs or keys.');
+  console.log('Only the aggregate numbers are sent — your logs and keys stay on this machine.');
 
   const body = {
     nick,
@@ -533,16 +574,15 @@ async function runPipeline(opts, cliVersion, { interactive }) {
 
   if (interactive && !opts.yes) {
     const who = opts.bearer ? `@${nick}` : nick;
-    const ok = await confirm(
-      `Publish your tokmax page as ${who}?${opts.bearer ? ' (only your @handle labels the page — nothing is posted to X)' : ''} [y/N] `,
-    );
+    const ok = await confirm(`Publish your tokmax page as ${who}? [Y/n] `, { defaultYes: true });
     if (!ok) {
       console.log('Cancelled.');
       return { code: 0, published: false };
     }
   }
 
-  const pubP = startProgress(`Publishing your tokmax page as ${opts.bearer ? `@${nick}` : nick}`);
+  const pubTag = stepTag();
+  const pubP = startProgress(`${pubTag} Publishing your tokmax page as ${opts.bearer ? `@${nick}` : nick}`);
   const { status, json } = await publish(opts.api, body, opts.bearer);
 
   if (!json) {
@@ -551,7 +591,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   }
 
   if (json.ok) {
-    pubP.succeed('Published');
+    pubP.succeed(`${pubTag} Published`);
     if (opts.bearer) {
       console.log(`\nPublished to your tokmax page as @${json.nick || nick}.`);
     } else if (json.created && json.secret) {
@@ -572,13 +612,17 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     }
     console.log(`\n  Done! Your page: ${json.url}\n`);
 
+    // Auto-open the published page so any machine lands straight on the result.
+    if (json.url && interactive && openUrl(json.url)) {
+      console.log('  Opening it in your browser…\n');
+    }
+
     // Пошаговая инструкция: добавить ещё один источник (комп/сервак) — дашборд суммирует все.
     console.log('  ── Add another computer / server (your dashboard sums them all) ──');
     if (opts.bearer) {
-      console.log('  On the other machine, run two commands:');
-      console.log('    1)  npx tokmax login      ← sign in with the SAME X account');
-      console.log('    2)  npx tokmax            ← publishes that machine');
-      console.log(`  That's it — it merges into ${json.url} automatically (no keys to copy).\n`);
+      console.log('  On the other machine, just run one command:');
+      console.log('    npx tokmax login      ← sign in with the SAME X account');
+      console.log(`  It signs in, publishes that machine, and merges into ${json.url} automatically.\n`);
     } else {
       console.log('  On the other machine, run (same nick + your capability token):');
       console.log(`    npx tokmax ${json.nick || nick} --key <your-token>`);
@@ -664,7 +708,7 @@ async function main() {
 
   // Subcommands are intercepted before nick parsing (else "login" would be read
   // as a nick).
-  if (rawArgs[0] === 'login') return loginCmd(resolveApiBase(rawArgs));
+  if (rawArgs[0] === 'login') return loginCmd(rawArgs, resolveApiBase(rawArgs));
   if (rawArgs[0] === 'logout') return logoutCmd(rawArgs, resolveApiBase(rawArgs));
   if (rawArgs[0] === 'daily') return dailyCmd(rawArgs);
   if (rawArgs[0] === 'publish') return publishCmd(rawArgs.slice(1));

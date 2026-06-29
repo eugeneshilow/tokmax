@@ -150,9 +150,7 @@ export async function login(apiBase, machineLabel = os.hostname()) {
   const { server, port, resultPromise } = await startLoopback();
 
   const startUrl = `${WEB_BASE}/api/auth/x/start?port=${port}&rsh=${encodeURIComponent(redeemSecretHash)}`;
-  console.log('Opening your browser to sign in with X…');
-  console.log("(tokmax only reads your @handle to label your page. X's screen says 'posts you can");
-  console.log(" view' because that's how X login works — tokmax never posts or reads your tweets/DMs.)");
+  console.log('Opening X to confirm your @handle…');
   console.log(`If it did not open, paste this URL manually:\n  ${startUrl}\n`);
   openBrowser(startUrl);
 
