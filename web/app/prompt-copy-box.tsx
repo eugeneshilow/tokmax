@@ -19,7 +19,7 @@ export function PromptCopyBox({ prompt }: { prompt: string }) {
           <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#A1A1A6]">
             copy command
           </p>
-          <h3 className="mt-1 text-[20px] font-black leading-tight">Запусти в терминале</h3>
+          <h3 className="mt-1 text-[20px] font-black leading-tight">Run it in your terminal</h3>
         </div>
         <button
           type="button"
@@ -27,7 +27,7 @@ export function PromptCopyBox({ prompt }: { prompt: string }) {
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-white/20 bg-white px-3 text-[13px] font-black text-[#070707] transition-colors hover:bg-[#E8E8ED]"
         >
           {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-          {copied ? 'Скопировано' : 'Скопировать'}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap p-4 font-mono text-[13px] font-semibold leading-6 text-[#D2D2D7]">

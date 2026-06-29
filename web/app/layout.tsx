@@ -9,9 +9,9 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tokmax.vibecoding.tech'),
-  title: 'tokenmax — публичный счётчик API-equivalent расхода токенов',
+  title: 'tokmax — your public API-equivalent token-burn meter',
   description:
-    'tokenmax считает, во сколько обошёлся бы твой локальный расход Codex и Claude Code по цене API, и публикует счётчик одной командой.',
+    'tokmax measures what your local Codex and Claude Code usage would cost at API prices, and publishes the meter with one command.',
 }
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ru" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
         {children}
       </body>
