@@ -339,13 +339,18 @@ export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
 export const TMX_PROFILE_BASE_URL = 'https://tokmax.vibecoding.tech'
 export const FABLE5_LEADERBOARD_START = '2026-07-01'
 export const FABLE5_LEADERBOARD_END = '2026-07-07'
+// The event runs on SAN FRANCISCO time (owner decision, 2026-07-02), but data
+// days are the CLI's log date strings — UTC. July 7 in SF ends at 07:00 UTC on
+// July 8, and days are the atom (can't be split), so the data window includes
+// UTC 2026-07-08 in full. Display copy stays "July 1-7 · San Francisco time".
+export const FABLE5_LEADERBOARD_DATA_END = '2026-07-08'
 
 export function tmxProfileUrl(nick: string): string {
   return `${TMX_PROFILE_BASE_URL}/${nick}`
 }
 
 export function dateInFable5LeaderboardWindow(date: string): boolean {
-  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_END
+  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_DATA_END
 }
 
 // Window-scoped plausibility cap for the launch board. The all-time

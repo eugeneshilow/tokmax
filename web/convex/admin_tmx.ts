@@ -1,7 +1,43 @@
 import { internalMutation } from './_generated/server'
 import { v } from 'convex/values'
+import { projectTmxProfile, projectTmxProfileForAccount } from './tables/data_cooked_tmx_profiles'
 
 /**
+ * Surgical cleanup: delete a nick's submissions with the given machineLabels,
+ * then re-project the profile. Used for hostname-hygiene migrations (raw
+ * hostnames published before the anonymized-label CLI) without nuking the
+ * account/tokens the way purgeNick does — X logins on all machines survive.
+ */
+export const purgeSubmissionsByLabels = internalMutation({
+  args: { nick: v.string(), labels: v.array(v.string()) },
+  handler: async (ctx, { nick, labels }) => {
+    const kill = new Set(labels)
+    let deleted = 0
+
+    const rows = await ctx.db
+      .query('data_raw_tmx_submissions')
+      .withIndex('by_nick_inserted', (q) => q.eq('nick', nick))
+      .collect()
+    let accountXUserId: string | undefined
+    for (const row of rows) {
+      if (row.account_x_user_id) accountXUserId = row.account_x_user_id
+      if (kill.has(row.machineLabel)) {
+        await ctx.db.delete(row._id)
+        deleted++
+      }
+    }
+
+    if (accountXUserId) {
+      await projectTmxProfileForAccount(ctx, accountXUserId, nick)
+    } else {
+      await projectTmxProfile(ctx, nick)
+    }
+    return { nick, deleted, remaining: rows.length - deleted }
+  },
+})
+
+/**
+ * Full purge: profile + submissions + claim + account + tokens for a nick.
  */
 export const purgeNick = internalMutation({
   args: { nick: v.string() },

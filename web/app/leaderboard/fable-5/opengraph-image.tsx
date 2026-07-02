@@ -1,3 +1,4 @@
+import { fable5Countdown } from '@/lib/fable5'
 import { formatUsd } from '@/lib/format'
 import { loadTmxFable5Leaderboard } from '@/lib/tmx-profile-live'
 import { readFileSync } from 'node:fs'
@@ -11,8 +12,6 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const FONT_DIR = join(process.cwd(), 'lib/og/fonts')
-const FABLE5_START_UTC = Date.UTC(2026, 6, 1)
-const FABLE5_END_UTC = Date.UTC(2026, 6, 7)
 const MEDALS = ['🥇', '🥈', '🥉']
 
 function loadFonts() {
@@ -34,14 +33,6 @@ function loadFonts() {
   } catch {
     return undefined
   }
-}
-
-function fable5Countdown(): { day: number; daysLeft: number; over: boolean } {
-  const now = new Date()
-  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  const day = Math.min(7, Math.max(1, Math.floor((todayUtc - FABLE5_START_UTC) / 86400000) + 1))
-  const daysLeft = Math.max(0, Math.floor((FABLE5_END_UTC - todayUtc) / 86400000) + 1)
-  return { day, daysLeft, over: todayUtc > FABLE5_END_UTC }
 }
 
 export default async function Fable5BoardOgImage() {

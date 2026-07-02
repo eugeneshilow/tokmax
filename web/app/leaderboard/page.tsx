@@ -1,3 +1,5 @@
+import { TerminalCard } from '@/components/terminal-card'
+import { fable5ChipLabel } from '@/lib/fable5'
 import { formatCompactNumber, formatUsd, formatUsdPrecise } from '@/lib/format'
 import { loadTmxLeaderboardByPeriod } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
@@ -41,7 +43,12 @@ function periodLabel(period: string): string {
   return `${MONTH_NAMES[idx] ?? m} ${y}`
 }
 
-/** Recent months (current first), recent years, then all-time — selectable set. */
+/**
+ * Selectable periods: current + previous month, current year, all-time.
+ * Deliberately collapsed from 6 months × 2 years — with a young board most
+ * pills led to "No one on the board" dead-ends. Unknown ?period values fall
+ * back to the current month.
+ */
 function buildPeriodOptions(now: Date): {
   current: string
   months: PeriodOption[]
@@ -49,16 +56,12 @@ function buildPeriodOptions(now: Date): {
 } {
   const current = monthKey(now)
   const months: PeriodOption[] = []
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 2; i += 1) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
     const value = monthKey(d)
     months.push({ value, label: periodLabel(value) })
   }
-  const years: PeriodOption[] = []
-  for (let i = 0; i < 2; i += 1) {
-    const y = String(now.getUTCFullYear() - i)
-    years.push({ value: y, label: y })
-  }
+  const years: PeriodOption[] = [{ value: String(now.getUTCFullYear()), label: String(now.getUTCFullYear()) }]
   return { current, months, years }
 }
 
@@ -156,30 +159,28 @@ export default async function TmxLeaderboardPage({
             </div>
           </div>
 
-          <div className="mt-7 inline-flex h-10 items-center rounded-lg border border-white/20 px-4 font-mono text-[13px] font-bold">
-            {SELF_SERVE_ONELINER}
-          </div>
-          <div className="mt-3">
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <span className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 font-mono text-[13px] font-bold">
+              {SELF_SERVE_ONELINER}
+            </span>
             <Link
               href="/leaderboard/fable-5"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#18D86B]/50 px-4 text-[14px] font-bold text-[#18D86B] transition-colors hover:bg-[#18D86B]/10"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A] bg-[#FF7A1A]/12 px-4 font-mono text-[12px] font-black uppercase tracking-[0.06em] text-[#FFC79A] transition-colors hover:bg-[#FF7A1A]/20"
             >
               <Sparkles className="h-4 w-4" />
-              Fable 5 board
+              {fable5ChipLabel()}
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="bg-white">
+      <section className="bg-[#F5F5F7]">
         <div className="mx-auto max-w-[1680px] px-4 py-6 md:px-6">
-          <p className="mb-4 font-mono text-[12px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">
-            {label}
-          </p>
           {rows.length === 0 ? (
             <p className="py-16 text-center text-[16px] font-semibold text-[#6E6E73]">{t.empty}</p>
           ) : (
-            <div className="overflow-x-auto border border-[#D2D2D7]">
+            <TerminalCard title={`tokmax — leaderboard — ${label.toLowerCase()}`} live tone="paper">
+              <div className="overflow-x-auto">
               <table className="w-full min-w-[680px] border-collapse text-left">
                 <thead className="bg-[#F5F5F7] text-[11px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">
                   <tr>
@@ -224,13 +225,18 @@ export default async function TmxLeaderboardPage({
                       </td>
                       <td className="px-4 py-4 text-right text-[#6E6E73]">{formatCompactNumber(row.totalTokens)}</td>
                       <td className="px-4 py-4 text-[12px] font-semibold text-[#6E6E73]">
-                        {row.machineLabels.join(' + ') || '—'}
+                        {/* Count only — labels are user-supplied and used to
+                            leak raw hostnames; the number is the story. */}
+                        <span className="inline-flex items-center rounded bg-[#ECECEF] px-2 py-0.5 font-mono text-[11px] font-bold">
+                          💻 ×{row.machineLabels.length || 1}
+                        </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </TerminalCard>
           )}
         </div>
       </section>
@@ -238,7 +244,7 @@ export default async function TmxLeaderboardPage({
       <section id="build-your-counter" className="border-t border-[#242428] bg-[#070707] text-white">
         <div className="mx-auto grid max-w-[1680px] gap-5 px-4 py-8 md:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] md:px-6 md:py-10">
           <div className="min-w-0">
-            <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#18D86B]">
+            <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#FF7A1A]">
               {t.buildEyebrow}
             </p>
             <h2 className="mt-3 max-w-2xl text-[30px] font-black leading-[1.0] md:text-[44px]">

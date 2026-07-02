@@ -153,6 +153,17 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
 
+  // One-click share: pre-filled post with the numbers. The paste/screenshot IS
+  // the viral loop — the button must cost the visitor zero effort.
+  const shareText = [
+    `I burned ${formatUsd(profile.costUsd)} in AI tokens at API prices` +
+      (econ && econ.profit >= 0 ? ` — ${econ.ratio.toFixed(1)}× my plan` : '') +
+      '.',
+    'See yours: npx tokmax',
+    `https://${shareUrl}`,
+  ].join('\n')
+  const shareIntentHref = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}`
+
   // English-only copy.
   const t = {
     notVerified: 'figure not verified',
@@ -369,6 +380,11 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                     {formatUsdPrecise(econ.windowBurn)} of API value in the last 30 days on your{' '}
                     {formatUsdPrecise(econ.sub)}/mo plan. You&apos;re up {econ.ratio.toFixed(1)}× 🔥
                   </p>
+                  {/* Crop-proof attribution: this block is the most screenshotted
+                      crop on the page — the URL must survive the crop. */}
+                  <p className="mt-4 border-t border-[#18D86B]/25 pt-3 font-mono text-[12px] font-bold text-[#6BE39A]">
+                    {shareUrl}
+                  </p>
                 </div>
               ) : (
                 <div className="mt-6 max-w-2xl rounded-2xl border border-[#FF7A1A]/45 bg-[#FF7A1A]/10 px-6 py-5">
@@ -419,7 +435,16 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                 Leaderboard
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
-              <div className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-white">
+              <a
+                href={shareIntentHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#FF7A1A] px-4 font-black text-black transition-colors hover:bg-[#FF954A]"
+              >
+                Share on X
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+              <div className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 font-mono text-[13px] text-white">
                 {shareUrl}
               </div>
               <Link
@@ -429,9 +454,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                 {t.buildYourOwnCta}
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
-              <span className="inline-flex h-10 items-center rounded-lg border border-white/12 px-4 text-[13px] font-semibold text-[#8A8A8F]">
-                ↓ screenshot this
-              </span>
             </div>
           </div>
 

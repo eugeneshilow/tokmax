@@ -54,6 +54,9 @@ const REPO_URL = 'https://github.com/eugeneshilow/tokmax';
 const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
 const FABLE5_LEADERBOARD_START = '2026-07-01';
 const FABLE5_LEADERBOARD_END = '2026-07-07';
+// Event runs on San Francisco time; log dates are UTC strings, so the data
+// window includes UTC 2026-07-08 to cover July 7 in SF (matches the server).
+const FABLE5_LEADERBOARD_DATA_END = '2026-07-08';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Open a URL in the default browser (best-effort; silent if unavailable).
@@ -193,7 +196,7 @@ function isFable5ModelId(model) {
 }
 
 function dateInFable5LeaderboardWindow(date) {
-  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_END;
+  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_DATA_END;
 }
 
 async function readPackageVersion() {
