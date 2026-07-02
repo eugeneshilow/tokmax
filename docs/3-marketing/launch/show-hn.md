@@ -1,37 +1,66 @@
-TITLE (paste into the title field):
+# Show HN — launch kit
 
-Show HN: tokmax – what your Codex/Claude Code usage would cost at API prices
+Date: 2026-07-02. Status: post Jul 9-11 (not the same day as PH), after the
+event supplies data. HN wants engineering honesty, not marketing — the angle
+is "we ran an experiment, here's the data and the anti-fraud design".
 
----
+## Title (pick one)
 
-URL (paste into the url field):
+- A: "Show HN: Tokmax – what your AI coding would cost at API prices"
+- B: "Show HN: We ran a 7-day token-burn leaderboard during the Fable 5 launch"
+- C: "Show HN: Tokenmaxxing – verified leaderboard of AI coding token burn"
 
-https://tokmax.dev
+URL: https://tokmax.dev (A) or https://tokmax.dev/fable-5 (B).
 
----
+## Text (first comment, posted immediately by the author)
 
-BODY (post as the FIRST COMMENT, right after submitting — leave HN's text field EMPTY; HN can't accept a url and text together):
+> During the Fable 5 launch week (Anthropic capped it at 50% of weekly
+> limits) we ran a public experiment: a leaderboard of who burns the most
+> tokens, measured at API-equivalent prices. Results: $___ across ___
+> participants in 7 days.
+>
+> How it works: `npx tokmax` reads your local Codex/Claude Code JSONL logs,
+> counts tokens with ccusage's methodology (dedup by message+request id),
+> prices them with LiteLLM's rate table, computes the total locally, and
+> publishes ONLY aggregate numbers — per-day, per-model token counts and
+> dollars. No prompts, no file paths, no keys. The payload is inspectable in
+> the code, and the profile page shows exactly what was sent.
+>
+> The interesting design problem was fraud: it's self-reported data. Current
+> answers: identity via X OAuth (rank links to a real account), per-window
+> plausibility caps, divergence gates between the per-day series and totals,
+> and anonymized machine labels (early versions leaked hostnames — fixed).
+> It's abuse-resistant, not fraud-proof, and the site says so.
+>
+> The economics side: it computes whether your usage beat your subscription
+> (API-equivalent ÷ plan price) and whether your launch-week pace means a
+> second subscription pays for itself. Labeled as a decision aid — the $ is
+> API-equivalent value, not cash saved.
+>
+> Stack: CLI is dependency-free Node; site is Next.js + Convex. MIT.
+> Happy to answer anything about the counting, the caps, or the data.
 
-`npx tokmax` reads your local Codex and Claude Code logs and tells you what your token usage would have cost at API prices — instead of the flat subscription you actually pay.
+## Comment-defense FAQ (draft replies live here; the owner posts)
 
-My own number: ~$2,870 · 3.5B tokens · ~3 weeks of API-equivalent tokens. That's the hook, honestly — it's an absurd number and I wanted to see everyone else's.
+- **"API-equivalent is fake money."** Correct — and it's labeled that way
+  everywhere. It's the market price of the same tokens, the only neutral
+  yardstick across subscriptions. The PROFIT/× framing exists precisely
+  because people pay flat rates.
+- **"Self-reported = worthless."** Self-reported with verified identity,
+  window gates and plausibility caps. Same trust model as Strava. We publish
+  the anti-fraud design and its limits; a server-side recompute of $ from
+  token counts is the next hardening step.
+- **"Burning tokens is wasteful."** The board measures value, not virtue.
+  The PROFIT metric is literally about paying less per unit of work.
+  Optimization is the point — the flex is the distribution mechanism.
+- **"Privacy?"** Only aggregates leave the machine; the exact payload is one
+  function in the open-source CLI; `tokmax delete` purges account-wide and
+  is idempotent across machines. Profiles are noindex.
+- **"Why X sign-in?"** Anti-fraud + the prize IS the follow-back. Anonymous
+  publishing works too (capability token), it's just labeled unverified.
 
-Privacy first, because I'd be suspicious of this too. Only aggregates leave your machine: token counts per model, dates, and a machine label you set. Never your prompts, code, file contents, tool output, or API keys. It's open source (github.com/eugeneshilow/tokmax), so you can read exactly what gets sent before you run it.
+## Timing & conduct
 
-How it works:
-
-- Scans the session logs Codex and Claude Code already write locally.
-- Sums tokens per model.
-- Dedupes session resumes, so context replayed across continued sessions isn't double-counted.
-- The client sends only counts; the server recomputes the dollar figure from those counts at public per-model rates, so the conversion can't be fudged.
-- You get a profile at tokmax.dev/<nick> and a spot on a public leaderboard (who burned the most).
-
-Optional: enter your $/mo subscription and the page shows how many times over your usage paid back the sub (API-equivalent ÷ subscription = N×).
-
-Zero install, zero runtime deps, Node 18+. No signup, no account, no email to run it. It's free — a build-in-public side project, not a startup. I'm not affiliated with OpenAI or Anthropic.
-
-What I'd like feedback on:
-
-- The dedupe logic. Session-resume accounting is the part I'm least sure about — if your counts look off, I want the repro.
-- Whether the per-model rates I'm using match what you'd expect, and the edge cases where they'd be wrong.
-- Whether "API-equivalent $" is even the right framing, or if there's a less misleading way to say "what you'd pay without the subscription."
+Post 7-9am PT Tue-Thu. One submission, no resubmit-begging, no vote rings.
+Author stays in the thread for the first 3 hours and answers everything —
+tone: engineer, receipts, zero marketing adjectives.

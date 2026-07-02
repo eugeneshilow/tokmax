@@ -1,77 +1,69 @@
-## 1. NAME
+# Product Hunt — launch kit
 
-**tokmax**
+Date: 2026-07-02. Status: ready to submit Jul 9-10 (Tue/Wed, 00:01 PT), after
+the Fable 5 wrapped thread supplies live numbers. Fill `$___` at post time.
 
----
+## Listing
 
-## 2. TAGLINE (≤60 chars)
+- **Name:** tokmax
+- **Tagline (pick one, A is default):**
+  - A: "Tokenmaxxing, verified — your AI coding burn at API prices"
+  - B: "The verified token-burn scoreboard for AI coding"
+  - C: "Strava for your Claude Code & Codex token burn"
+- **Links:** tokmax.dev · github.com/eugeneshilow/tokmax
+- **Topics:** Developer Tools, Artificial Intelligence, Open Source, CLI
 
-**See your token burn in API dollars. Then flex it.**
-*(49 chars)*
+## Description (the form's short text)
 
-Alternates to A/B:
-- `Your subscription vs API prices, in one command.` (48)
-- `What your AI coding would cost at API prices.` (45)
+> You're on a Claude Max or ChatGPT subscription. tokmax reads your local
+> Codex + Claude Code logs and answers: what would this cost at raw API
+> prices? One command — `npx tokmax` — no signup, no email. You get a
+> receipt page, a spot on a verified leaderboard, and the honest economics:
+> how many times your usage beat your plan (PROFIT/×), and whether stacking
+> a second subscription would pay for itself (stack math). Only aggregate
+> numbers leave your machine. Open source, MIT.
 
----
+## First (maker) comment
 
-## 3. DESCRIPTION (~3–5 sentences)
+> Hey PH 👋
+>
+> Last week Anthropic launched Fable 5 capped at 50% of weekly limits, and
+> the whole timeline argued about one thing: is one subscription enough?
+> So we ran a 7-day public experiment — a leaderboard of who burns the most,
+> measured at API-equivalent prices, identities verified via X. Results:
+> $___ burned across ___ devs; the average pace implied a 2nd $200/mo
+> subscription pays back ___×.
+>
+> That experiment is now a product with two faces:
+> **the flex** — your burn as a terminal-style receipt built for
+> screenshots, and a leaderboard where your rank links to your X profile;
+> **the math** — PROFIT/× vs your plan and second-subscription payback,
+> computed from YOUR numbers, honestly labeled (API-equivalent value, not
+> cash; a decision aid, not financial advice).
+>
+> Privacy was non-negotiable: the CLI computes everything locally and sends
+> only aggregate numbers — never prompts, paths, or keys. It's open source;
+> read the code before you run it.
+>
+> Run `npx tokmax`, drop your receipt in the comments — I genuinely want to
+> see who out-burns the current #1 ($___). 🔥
 
-tokmax reads your local Codex and Claude Code logs and answers one question: what would your token usage have cost at raw API prices instead of a flat subscription? Run `npx tokmax` — no install, no signup, no account, no email. You get your number (the maker's: **~$2,870 · 3.5B tokens · ~3 weeks** of API-equivalent usage), a public profile at `tokmax.dev/<nick>`, and a spot on the leaderboard. Enter your $/mo plan and it shows how many times over your usage paid back the subscription (API-equivalent ÷ subscription = N×).
+## Gallery (5 images, 1270×760 — Codex generates via Playwright)
 
-**Privacy:** only aggregates ever leave your machine — token counts per model, dates, and a machine label. Never your prompts, code, file contents, tool output, or API keys. It's open source, so check the code yourself: github.com/eugeneshilow/tokmax
+1. Profile receipt card (the ANSI-art $ figure) — hero shot.
+2. Fable 5 Week card (event receipt: day counter, stack math line).
+3. The /fable-5 hub with the board + "Is one Max enough?" section.
+4. Terminal: CLI output after `npx tokmax` (scan → receipt → share block).
+5. Landing page with the event strip and live leaderboard.
 
----
+Store in Dropbox `6-content/vibecoding-ru/tokmax-launch/` (binaries never in
+git). Alt text on each = the caption sentence.
 
-## 4. FIRST MAKER COMMENT
+## Launch-day playbook
 
-Hey Product Hunt 👋
-
-I'm an indie dev who basically lives inside Codex and Claude Code. One night I got curious: I'm on flat subscriptions, but what would all this token burn have actually cost at raw API prices?
-
-So I wrote a quick script to read my local logs and add it up. The number made me laugh: **~$2,870 · 3.5B tokens · ~3 weeks** of API-equivalent tokens. I screenshotted it, posted it, and friends immediately wanted their own number. So I cleaned it up into `npx tokmax`.
-
-The privacy part mattered to me, because I'd never run a tool that ships my code or prompts off my machine. So tokmax doesn't. **Only aggregates leave your machine: token counts per model, dates, and a machine label. Never your prompts, code, file contents, tool output, or API keys.** It's open source — read it, fork it, distrust me and check: github.com/eugeneshilow/tokmax
-
-Under the hood: it dedupes (session resumes don't double-count), and the server recomputes the dollar figure from your token counts at public per-model rates, so the conversion can't be fudged. You can also punch in your $/mo subscription and see how many times over your usage paid back the plan (API-equivalent ÷ subscription = N×).
-
-No signup, no account, no email. Just:
-
-```
-npx tokmax
-```
-
-You'll get a profile at `tokmax.dev/<nick>` and a spot on the leaderboard. Run it, screenshot your number, and drop it in the comments — I genuinely want to see who's burning the most. 🔥
-
-It's free: no account, no upsell, nothing to log in to. Happy to answer anything.
-
-*(Not affiliated with OpenAI or Anthropic — tokmax just reads logs the tools write locally.)*
-
----
-
-## 5. TOPICS / TAGS
-
-Top 3 (PH limit), in priority order:
-
-1. **Developer Tools**
-2. **Open Source**
-3. **Artificial Intelligence**
-
-Backups for cross-tagging / if a slot frees up:
-- **Command Line Tools (CLI)**
-- **GitHub**
-- **Productivity**
-
----
-
-## 6. GALLERY SHOT-LIST (3–5 assets)
-
-1. **Hero terminal (the money shot)** — `npx tokmax` running in a clean terminal, ending on the big result: `~$2,870 · 3.5B tokens · ~3 weeks`. This is the thumbnail; make the number huge and legible. *(First gallery image = the PH card preview, so this one carries the launch.)*
-
-2. **The leaderboard** — the public ranked list, nicks sorted by API-equivalent $. Show 8–10 rows so the "who burned the most" angle reads instantly.
-
-3. **A profile page** — `tokmax.dev/<nick>` showing the per-model token breakdown and the API-equivalent ÷ subscription multiplier (illustrative: ~14× on a ≈$205/mo plan — "your usage paid back your plan 14×"; not the maker's real plan).
-
-4. **Privacy two-column graphic** — "Stays on your machine" (prompts, code, file contents, tool output, API keys) vs "Leaves your machine" (token counts per model, dates, machine label). Same trust line as the copy. Calms the "a tool reading my logs?" reflex.
-
-5. **GIF (10–15s)** — full flow: type `npx tokmax` → number lands → cut to the live public profile + leaderboard slot. Ends on a "screenshot this" beat.
+- Submit 00:01 PT; maker comment immediately; X post "we're on PH" mid-morning
+  PT with a receipt screenshot (link in reply).
+- Reply to every comment within the hour; receipts > arguments — answer
+  skeptics with the methodology link, not adjectives.
+- Do NOT buy upvotes, do NOT run vote-exchange DMs — ranking penalties are
+  real and the niche is small enough to win organically.
