@@ -3,6 +3,22 @@
 Append-only, **новое сверху**. Полный канон формата — в основном проекте
 (`vibecoding-ru/docs/decision-log.md`). Сюда — решения и осознанные отказы по tokmax.
 
+## 2026-07-02 · Арт-дирекшн «Money Terminal» — канон визуального языка
+Каждый share-артефакт — фейковый скриншот терминала (traffic-light точки,
+`$ npx tokmax`, box-drawing, гигантское оранжевое число) + оранжевый edge-glow
++ flame-tier глиф; палитра ink/burn/profit/codex, Inter + JetBrains Mono;
+CLI = сайт = OG pixel-for-pixel. Спека и мокапы —
+`docs/1-strategy/fable5-summaries/style-virality-2026-07-02.md`.
+Слова владельца (про terminal-card мокап): «вот это выглядит ОХУЕННО!»
+Отвергли: «receipt/invoice» (заезжен Receiptify; остаётся как разовый
+event-skin), «burn meter» (🔥 = generic AI-twitter, не несёт профит-сюжет).
+
+## 2026-07-02 · Папка fable5-summaries — дневник мышления модели в docs
+В tokmax (как и в vibecoding-ru, vibecoding-tech) живёт
+`docs/1-strategy/fable5-summaries/`: агент сохраняет туда промежуточные
+размышления, выводы и спеки крупных прогонов тем же заходом. Канон правила —
+`AGENTS.md` основного проекта `vibecoding-ru` (Docs → Fable5-summaries).
+
 ## 2026-06-28 · Подсчёт $: ccusage (счёт) + LiteLLM (цены) + НАША формула; Convex не считает
 Движок «API-equivalent $»: токены — методологией ccusage (дедуп `message.id+requestId`,
 max-wins); цены — из LiteLLM (maintained, не руками); формула — **наша** (правильный дисконт

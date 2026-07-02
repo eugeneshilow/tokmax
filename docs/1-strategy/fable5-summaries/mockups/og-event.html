@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tokmax — OG Fable 5 event card 1200×630</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#070707; --surface:#111111; --paper:#F5F5F7;
+    --burn:#FF7A1A; --profit:#18D86B; --codex:#3861FB;
+    --line-dark:#242428;
+    --g1:#D2D2D7; --g2:#A1A1A6; --g3:#6E6E73;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{
+    background:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-feature-settings:'tnum' 1;
+    position:relative;
+  }
+  body::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(720px 340px at 50% -8%, rgba(255,122,26,.10), transparent 70%);
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* ── terminal card: same silhouette as profile OG ───────── */
+  .term{
+    position:absolute;inset:36px;               /* 1128 × 558 */
+    background:var(--surface);
+    border:1px solid rgba(255,122,26,.45);
+    border-radius:18px;
+    box-shadow:
+      0 0 28px rgba(255,122,26,.22),
+      0 0 90px rgba(255,122,26,.13),
+      0 26px 70px rgba(0,0,0,.6);
+    display:flex;flex-direction:column;
+  }
+  .titlebar{
+    height:54px;flex:none;
+    display:flex;align-items:center;gap:12px;
+    padding:0 24px;
+    border-bottom:1px solid var(--line-dark);
+  }
+  .dot{width:14px;height:14px;border-radius:50%}
+  .dot.r{background:#FF5F57}.dot.y{background:#FEBC2E}.dot.g{background:#28C840}
+  .titlebar .title{flex:1;text-align:center;font-size:16px;color:var(--g3)}
+  .live{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;
+    letter-spacing:.08em;color:var(--burn)}
+  .live .pulse{width:10px;height:10px;border-radius:50%;background:var(--burn);
+    box-shadow:0 0 12px rgba(255,122,26,.8)}
+
+  .content{flex:1;display:flex;gap:52px;padding:34px 48px 36px}
+
+  /* left: event narrative */
+  .left{flex:1.15;display:flex;flex-direction:column}
+  .eyebrow{
+    font-size:15px;font-weight:700;letter-spacing:.08em;
+    color:var(--burn);text-transform:uppercase;
+  }
+  h1{
+    margin-top:14px;
+    font-size:52px;line-height:1.0;letter-spacing:-.02em;
+    font-weight:800;color:#fff;white-space:nowrap;
+  }
+  h1 .dim{color:var(--g2)}
+
+  .days{margin-top:26px}
+  .seg{display:flex;gap:8px}
+  .seg i{height:12px;flex:1;border-radius:3px;background:var(--line-dark)}
+  .seg i.on{background:var(--burn);box-shadow:0 0 12px rgba(255,122,26,.5)}
+  .dayline{margin-top:12px;font-size:17px;color:var(--g2);letter-spacing:.04em}
+  .dayline b{color:#fff;font-weight:700}
+  .dayline .left-days{color:var(--burn);font-weight:700}
+
+  .total{margin-top:26px}
+  .total .cap{font-size:17px;color:var(--g2)}
+  .total .amt{
+    font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:62px;letter-spacing:-.04em;color:var(--burn);
+    text-shadow:0 0 34px rgba(255,122,26,.35);line-height:1.05;
+  }
+  .total .amt small{font-size:24px;font-weight:400;color:var(--g2);letter-spacing:0;text-shadow:none}
+
+  .cta{
+    margin-top:auto;display:inline-flex;align-items:center;gap:16px;
+    align-self:flex-start;
+    background:var(--ink);
+    border:1.5px solid rgba(255,122,26,.7);border-radius:12px;
+    padding:14px 24px;
+    box-shadow:0 0 22px rgba(255,122,26,.18);
+  }
+  .cta .cmd{font-size:26px;font-weight:700;color:var(--burn)}
+  .cta .cmd .prompt{color:var(--g3);font-weight:400}
+  .cta .cap{font-size:15px;color:var(--g2);line-height:1.35}
+
+  /* right: top-3 podium rows */
+  .right{flex:1;display:flex;flex-direction:column;gap:12px}
+  .row{
+    display:flex;align-items:center;gap:14px;
+    background:#0C0C0E;border:1px solid var(--line-dark);border-radius:12px;
+    padding:14px 20px;
+  }
+  .row.first{
+    border:1.5px solid rgba(255,122,26,.65);
+    background:rgba(255,122,26,.06);
+    box-shadow:0 0 18px rgba(255,122,26,.12);
+    padding:18px 20px;
+  }
+  .medal{font-size:27px;line-height:1;flex:none}
+  .ava{
+    width:42px;height:42px;border-radius:50%;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:#fff;
+    border:1px solid rgba(255,255,255,.14);
+  }
+  .a1{background:linear-gradient(135deg,#FF9A4D,#B34700)}
+  .a2{background:linear-gradient(135deg,#5A5A60,#2A2A2E)}
+  .a3{background:linear-gradient(135deg,#7A5C3E,#3E2B18)}
+  .nick{font-size:22px;font-weight:600;color:#fff;letter-spacing:-.01em;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .amt{
+    margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:30px;letter-spacing:-.03em;color:var(--burn);flex:none;
+  }
+  .row.first .amt{font-size:36px;text-shadow:0 0 22px rgba(255,122,26,.4)}
+  .row.first .nick{font-size:24px}
+  .more{
+    margin-top:auto;text-align:center;
+    font-size:16px;color:var(--g3);letter-spacing:.02em;
+  }
+  .more b{color:var(--g2);font-weight:400}
+</style>
+</head>
+<body>
+  <div class="term">
+    <div class="titlebar mono">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">tokmax — leaderboard/fable-5 — live</span>
+      <span class="live"><span class="pulse"></span>LIVE</span>
+    </div>
+    <div class="content">
+
+      <div class="left">
+        <div class="eyebrow mono">FABLE 5 · COMMUNITY BURN EVENT</div>
+        <h1>Who burns the most<br><span class="dim">on Fable&nbsp;5?</span></h1>
+
+        <div class="days">
+          <div class="seg"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="dayline mono">DAY <b>2</b>/7 · ENDS JUL 7 · <span class="left-days">5 DAYS LEFT</span></div>
+        </div>
+
+        <div class="total">
+          <div class="cap">burned so far, together</div>
+          <div class="amt">$84,120 <small>· 312 devs</small></div>
+        </div>
+
+        <div class="cta">
+          <div class="cmd mono"><span class="prompt">$</span> npx tokmax</div>
+          <div class="cap">~2 min · get on<br>the board</div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="row first">
+          <span class="medal">🥇</span>
+          <span class="ava a1">ES</span>
+          <span class="nick">eugeneshilow</span>
+          <span class="amt">$8,749</span>
+        </div>
+        <div class="row">
+          <span class="medal">🥈</span>
+          <span class="ava a2">DA</span>
+          <span class="nick">dan_abrv</span>
+          <span class="amt">$6,412</span>
+        </div>
+        <div class="row">
+          <span class="medal">🥉</span>
+          <span class="ava a3">KD</span>
+          <span class="nick">kseniya_dev</span>
+          <span class="amt">$5,087</span>
+        </div>
+        <div class="more mono">+ 309 more · <b>tokmax.vibecoding.tech/leaderboard/fable-5</b></div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

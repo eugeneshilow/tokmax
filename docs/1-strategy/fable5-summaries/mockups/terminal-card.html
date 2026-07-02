@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tokmax — ideal CLI final printout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#070707; --surface:#111111;
+    --burn:#FF7A1A; --profit:#18D86B;
+    --line-dark:#242428;
+    --g1:#D2D2D7; --g2:#A1A1A6; --g3:#6E6E73;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    min-height:100vh;
+    background:var(--ink);
+    background-image:radial-gradient(640px 420px at 50% 0%, rgba(255,122,26,.08), transparent 70%);
+    display:flex;align-items:center;justify-content:center;
+    padding:56px 24px;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  /* ── terminal window: signature silhouette ──────────────── */
+  .term{
+    width:800px;
+    background:var(--surface);
+    border:1px solid rgba(255,122,26,.45);
+    border-radius:14px;
+    box-shadow:
+      0 0 24px rgba(255,122,26,.20),
+      0 0 80px rgba(255,122,26,.12),
+      0 24px 60px rgba(0,0,0,.6);
+    overflow:hidden;
+  }
+  .titlebar{
+    height:42px;
+    display:flex;align-items:center;gap:9px;
+    padding:0 16px;
+    border-bottom:1px solid var(--line-dark);
+  }
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#FF5F57}.dot.y{background:#FEBC2E}.dot.g{background:#28C840}
+  .titlebar .title{flex:1;text-align:center;font-size:12px;color:var(--g3)}
+
+  .screen{padding:22px 26px 26px;font-size:14px;line-height:1.55;color:var(--g1)}
+  pre{font-family:inherit;font-size:inherit;line-height:inherit;margin:0}
+
+  .p{color:var(--g3)}          /* prompt / dim */
+  .c{color:var(--g1)}          /* command / normal */
+  .ok{color:var(--profit)}     /* CLI green — checks & profit only */
+  .w{color:#fff;font-weight:700}
+  .o{color:var(--burn)}
+  .ob{color:var(--burn);font-weight:700}
+  .gb{color:var(--profit);font-weight:700}
+  .dim{color:var(--g3)}
+  .mid{color:var(--g2)}
+
+  /* ── the receipt box (what people screenshot) ───────────── */
+  .receipt{
+    margin:14px 0 18px;
+    border:1px solid #2E2E33;
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .receipt .head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:9px 18px;
+    border-bottom:1px solid var(--line-dark);
+    font-size:11px;letter-spacing:.08em;color:var(--g2);
+  }
+  .receipt .head .ev{color:var(--burn);font-weight:700}
+  .receipt .body{padding:18px 18px 14px}
+
+  pre.art{
+    font-size:16px;line-height:1.0;font-weight:400;
+    margin:6px 0 16px;
+  }
+  pre.art b{font-weight:400;color:var(--burn);text-shadow:0 0 12px rgba(255,122,26,.22)}
+  pre.art i{font-style:normal;color:rgba(255,122,26,.34)}
+  .receipt .line{padding:1px 0}
+  .receipt .foot{
+    border-top:1px solid var(--line-dark);
+    padding:9px 18px;
+    font-size:13px;
+  }
+
+  .quote{border-left:2px solid rgba(255,122,26,.5);padding-left:12px;margin:4px 0}
+  a{color:var(--burn);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+</style>
+</head>
+<body>
+  <div class="term">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">eugene@air — npx tokmax — 92×34</span>
+    </div>
+    <div class="screen">
+<pre>
+<span class="p">$</span> <span class="c">npx tokmax</span>
+
+<span class="ok">✔</span> <span class="mid">scanned <span class="w">6,182</span> sessions · 2 machines · last 30 days · 9s</span>
+</pre>
+
+      <div class="receipt">
+        <div class="head">TOKMAX · API-EQUIVALENT SPEND · LAST 30 DAYS<span class="ev">FABLE 5 · DAY 2/7</span></div>
+        <div class="body">
+<pre class="art">   <b>▄▄</b>
+<b>███████</b><i>╗</i>  <b>█████</b><i>╗</i>       <b>███████</b><i>╗</i> <b>██</b><i>╗</i>  <b>██</b><i>╗</i>  <b>█████</b><i>╗</i>
+<b>██</b><i>╔════╝</i> <b>██</b><i>╔══</i><b>██</b><i>╗</i>      <i>╚════</i><b>██</b><i>║</i> <b>██</b><i>║</i>  <b>██</b><i>║</i> <b>██</b><i>╔══</i><b>██</b><i>╗</i>
+<b>███████</b><i>╗</i> <i>╚</i><b>█████</b><i>╔╝</i>          <b>██</b><i>╔╝</i> <b>███████</b><i>║</i> <i>╚</i><b>██████</b><i>║</i>
+<i>╚════</i><b>██</b><i>║</i> <b>██</b><i>╔══</i><b>██</b><i>╗</i>         <b>██</b><i>╔╝</i>  <i>╚════</i><b>██</b><i>║</i>  <i>╚═══</i><b>██</b><i>║</i>
+<b>███████</b><i>║</i> <i>╚</i><b>█████</b><i>╔╝</i> <b>██</b><i>╗</i>     <b>██</b><i>║</i>        <b>██</b><i>║</i>  <b>█████</b><i>╔╝</i>
+<i>╚══════╝</i>  <i>╚════╝</i>  <b>█</b><i>╔╝</i>     <i>╚═╝</i>        <i>╚═╝</i>  <i>╚════╝</i>
+   <b>▀▀</b></pre>
+<pre>
+<span class="mid">at API prices · <span class="w">9,253,026,682</span> tokens <span class="dim">(9.25B)</span></span>
+
+<span class="gb">▲ +$8,349 profit · 21.9×</span> <span class="mid">vs your $400/mo plan</span>
+<span class="w">🏆 #1 of 312</span> <span class="mid">on the leaderboard</span>
+<span class="ob">⏳ FABLE 5</span> <span class="mid">· day 2 of 7 · ends Jul 7 — <span class="ob">5 days left</span></span>
+</pre>
+        </div>
+        <div class="foot"><span class="dim">your page →</span> <span class="ob">tokmax.vibecoding.tech/eugeneshilow</span></div>
+      </div>
+
+<pre>
+<span class="mid">share it — paste-ready:</span>
+</pre>
+      <div class="quote">
+<pre>
+<span class="c">I burned <span class="ob">$8,749</span> in AI tokens in 30 days — 21.9× my Claude plan.
+#1 on the tokmax board. See yours: <span class="w">npx tokmax</span></span>
+</pre>
+      </div>
+<pre>
+<span class="dim">→ post it:</span> <a href="#">x.com/intent/post?text=I+burned+%248%2C749…</a>
+
+<span class="dim">⌘⇧4 — screenshot the receipt above. It’s built for it.</span>
+</pre>
+    </div>
+  </div>
+</body>
+</html>

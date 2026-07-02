@@ -9,3 +9,9 @@
 Сейчас GTM/лонч-стратегия живёт в
 [3-marketing/launch/strategy.md](../3-marketing/launch/strategy.md) (это go-to-market).
 По мере роста сюда оседают высокоуровневые продуктовые заметки (видение, развилки).
+
+Внутри:
+
+- [fable5-summaries/](fable5-summaries/README.md) — дневник мышления Fable 5:
+  план прокачки, арт-дирекшн «Money Terminal», мокапы (правило-дом —
+  `AGENTS.md` основного проекта `vibecoding-ru`).

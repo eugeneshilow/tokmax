@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tokmax — OG profile card 1200×630</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#070707; --surface:#111111; --paper:#F5F5F7;
+    --burn:#FF7A1A; --profit:#18D86B; --codex:#3861FB;
+    --line-dark:#242428; --line-light:#D2D2D7;
+    --g1:#D2D2D7; --g2:#A1A1A6; --g3:#6E6E73;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{
+    background:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-feature-settings:'tnum' 1;
+    position:relative;
+  }
+  /* ambient haze so the glow reads even on pure-black feeds */
+  body::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(720px 340px at 50% -8%, rgba(255,122,26,.10), transparent 70%);
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* ── terminal card: the signature silhouette ───────────── */
+  .term{
+    position:absolute;inset:36px;               /* 1128 × 558 */
+    background:var(--surface);
+    border:1px solid rgba(255,122,26,.45);
+    border-radius:18px;
+    box-shadow:
+      0 0 28px rgba(255,122,26,.22),
+      0 0 90px rgba(255,122,26,.13),
+      0 26px 70px rgba(0,0,0,.6);
+    display:flex;flex-direction:column;
+  }
+  .titlebar{
+    height:54px;flex:none;
+    display:flex;align-items:center;gap:12px;
+    padding:0 24px;
+    border-bottom:1px solid var(--line-dark);
+  }
+  .dot{width:14px;height:14px;border-radius:50%}
+  .dot.r{background:#FF5F57}.dot.y{background:#FEBC2E}.dot.g{background:#28C840}
+  .titlebar .title{
+    flex:1;text-align:center;
+    font-size:16px;color:var(--g3);letter-spacing:.02em;
+  }
+  .titlebar .ver{font-size:14px;color:var(--g3);opacity:.7}
+
+  .content{
+    flex:1;display:flex;flex-direction:column;
+    padding:26px 48px 30px;
+  }
+
+  /* row 1: prompt line + rank pill */
+  .cmdrow{display:flex;align-items:center;justify-content:space-between}
+  .cmd{font-size:22px;color:var(--g1)}
+  .cmd .prompt{color:var(--g3)}
+  .cmd .caret{display:inline-block;width:12px;height:24px;background:var(--burn);
+    vertical-align:-4px;margin-left:8px;opacity:.85}
+  .rank{
+    display:inline-flex;align-items:center;gap:10px;
+    border:1.5px solid rgba(255,122,26,.6);border-radius:999px;
+    padding:8px 20px;
+    font-size:16px;font-weight:700;letter-spacing:.08em;color:var(--burn);
+    background:rgba(255,122,26,.07);
+  }
+
+  /* row 2: avatar + nick (white, 44px) */
+  .who{display:flex;align-items:center;gap:16px;margin-top:16px}
+  .ava{
+    width:52px;height:52px;border-radius:50%;flex:none;
+    background:linear-gradient(135deg,#FF9A4D,#B34700);
+    border:1.5px solid rgba(255,122,26,.5);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:20px;color:#fff;
+  }
+  .nick{font-size:44px;font-weight:700;color:#fff;letter-spacing:-.01em}
+  .who .burned{font-size:26px;color:var(--g2);margin-top:8px}
+
+  /* the money */
+  .money{display:flex;align-items:flex-start;gap:22px;margin-top:2px}
+  .fig{
+    font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:176px;line-height:.92;letter-spacing:-.05em;
+    color:var(--burn);
+    text-shadow:0 0 46px rgba(255,122,26,.35);
+  }
+  .flame{margin-top:14px;text-align:center}
+  .flame .fx{font-size:58px;line-height:1;filter:drop-shadow(0 0 16px rgba(255,122,26,.55))}
+  .flame .tier{font-size:12px;letter-spacing:.08em;color:var(--burn);margin-top:4px;font-weight:700}
+  .sub{font-size:33px;color:var(--g2);margin-top:12px}
+  .sub b{color:var(--g1);font-weight:700}
+
+  /* PROFIT block — the most-cropped element, URL baked into its bottom edge */
+  .profit{
+    position:relative;margin-top:auto;
+    display:flex;align-items:center;gap:26px;
+    border:1.5px solid rgba(24,216,107,.65);border-radius:14px;
+    background:rgba(24,216,107,.06);
+    padding:18px 30px 22px;
+  }
+  .profit .big{
+    font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:54px;letter-spacing:-.03em;color:var(--profit);
+    text-shadow:0 0 30px rgba(24,216,107,.3);
+  }
+  .profit .div{width:1px;height:54px;background:rgba(24,216,107,.3)}
+  .profit .lbl{line-height:1.3}
+  .profit .lbl .t{font-size:18px;font-weight:800;letter-spacing:.05em;color:var(--profit)}
+  .profit .lbl .d{font-size:17px;color:var(--g2)}
+  .profit .url{
+    position:absolute;left:28px;bottom:-11px;
+    background:var(--surface);padding:0 12px;
+    font-family:'JetBrains Mono',monospace;font-size:16px;
+    color:var(--profit);opacity:.95;letter-spacing:.01em;
+  }
+</style>
+</head>
+<body>
+  <div class="term">
+    <div class="titlebar mono">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">tokmax — eugeneshilow — 80×24</span>
+      <span class="ver">v0.9.12</span>
+    </div>
+    <div class="content">
+      <div class="cmdrow">
+        <div class="cmd mono"><span class="prompt">$</span> npx tokmax<span class="caret"></span></div>
+        <div class="rank mono">🏆&nbsp;RANK #1 · FABLE 5</div>
+      </div>
+
+      <div class="who">
+        <div class="ava">ES</div>
+        <div class="nick">eugeneshilow</div>
+        <div class="burned">burned · last 30 days</div>
+      </div>
+
+      <div class="money">
+        <div class="fig">$8,749</div>
+        <div class="flame">
+          <div class="fx">🔥</div>
+          <div class="tier mono">T5</div>
+        </div>
+      </div>
+      <div class="sub">at API prices · <b>9.25B</b> tokens</div>
+
+      <div class="profit">
+        <div class="big">+$8,349</div>
+        <div class="big">21.9×</div>
+        <div class="div"></div>
+        <div class="lbl">
+          <div class="t">PROFIT · LAST 30 DAYS</div>
+          <div class="d">beat your $400/mo plan</div>
+        </div>
+        <div class="url">tokmax.vibecoding.tech/eugeneshilow</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
