@@ -4,6 +4,7 @@
 
 @theme {
   --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, 'SF Mono', Menlo, monospace;
 
   --transition-delay-custom: var(--delay);
 

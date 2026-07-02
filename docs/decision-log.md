@@ -3,7 +3,22 @@
 Append-only, **новое сверху**. Полный канон формата — в основном проекте
 (`vibecoding-ru/docs/decision-log.md`). Сюда — решения и осознанные отказы по tokmax.
 
-## 2026-07-02 · Fable-5 ship slice: window-гейт, анонимный machineLabel, share-момент
+## 2026-07-02 · Событие Fable 5 идёт по времени Сан-Франциско; Money Terminal — на весь сайт
+(1) Часы события — America/Los_Angeles: day counter и дедлайн на страницах/OG
+считаются по SF («day 1/7», пока в SF 1 июля). Дни ДАННЫХ — UTC-строки дат из
+логов CLI (атом, не режется), поэтому окно данных включает UTC 2026-07-08
+целиком — 7 июля в SF засчитывается полностью (`FABLE5_LEADERBOARD_DATA_END`).
+Публичная формулировка: «July 1-7 · San Francisco time».
+Слова владельца: «время считай по Сан-Франциско! Там ещё по-моему всего 1 июля».
+(2) Арт-дирекшн Money Terminal раскатан на весь сайт: JetBrains Mono как
+брендовый mono (next/font), компонент `TerminalCard` (traffic lights, mono
+title bar, orange edge-glow, LIVE-точка) оборачивает борды и hero-CTA; медали
+топ-3 на всех бордах; hostname-лейблы на бордах заменены чипом «💻×N»
+(display-слой privacy); period-пиллы борда свёрнуты до «2 месяца + год +
+all-time» (dead-end пиллы — вон); double-precision числа убраны в title-тултип.
+(3) Admin-хирургия: `admin_tmx:purgeSubmissionsByLabels` — точечное удаление
+сабмишенов по machineLabel с ре-проекцией, НЕ трогая аккаунт/токены (в отличие
+от `purgeNick`) — для миграции с сырых hostname-лейблов без пере-логина машин.
 Слайс WIP Codex (фича Fable 5 + cleanup кода) зашипован с фиксами поверх:
 (1) event-борд фильтрует по window-scoped `fable5Suspicious` (кап $7,500 на
 окно 1–7 июля), а не по all-time `suspicious` — иначе lifetime-киты >$15k

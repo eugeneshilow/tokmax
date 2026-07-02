@@ -1,3 +1,5 @@
+import { TerminalCard } from '@/components/terminal-card'
+import { fable5Countdown } from '@/lib/fable5'
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
 import { FABLE5_LEADERBOARD_LABEL, loadTmxFable5Leaderboard } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../../prompt-copy-box'
@@ -9,22 +11,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const SELF_SERVE_ONELINER = 'npx tokmax'
-const FABLE5_START_UTC = Date.UTC(2026, 6, 1)
-const FABLE5_END_UTC = Date.UTC(2026, 6, 7)
 const MEDALS = ['🥇', '🥈', '🥉']
-
-// Day counter + urgency for the July 1-7 window, computed in UTC (board days
-// are UTC dates). Clamped so the page stays sane before/after the window.
-function fable5Countdown(): { day: number; daysLeft: number; over: boolean } {
-  const todayUtc = Date.UTC(
-    new Date().getUTCFullYear(),
-    new Date().getUTCMonth(),
-    new Date().getUTCDate()
-  )
-  const day = Math.min(7, Math.max(1, Math.floor((todayUtc - FABLE5_START_UTC) / 86400000) + 1))
-  const daysLeft = Math.max(0, Math.floor((FABLE5_END_UTC - todayUtc) / 86400000) + 1)
-  return { day, daysLeft, over: todayUtc > FABLE5_END_UTC }
-}
 
 export const metadata: Metadata = {
   title: 'Fable 5 leaderboard — tokmax',
@@ -58,6 +45,9 @@ export default async function Fable5LeaderboardPage() {
                 ? 'final results · July 1-7, 2026'
                 : `day ${countdown.day}/7 · ends Jul 7 · ${countdown.daysLeft} day${countdown.daysLeft === 1 ? '' : 's'} left`}
             </span>
+            <span className="font-mono text-[11px] font-bold text-[#6E6E73]">
+              San Francisco time
+            </span>
           </div>
           <h1 className="mt-5 max-w-5xl text-balance text-[42px] font-black leading-[0.95] text-white sm:text-[60px] lg:text-[76px]">
             Fable 5 spend leaderboard.
@@ -82,23 +72,19 @@ export default async function Fable5LeaderboardPage() {
         </div>
       </section>
 
-      <section className="bg-white text-[#1D1D1F]">
+      <section className="bg-[#F5F5F7] text-[#1D1D1F]">
         <div className="mx-auto max-w-[1680px] px-4 py-6 md:px-6">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <p className="font-mono text-[12px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">
-              Fable 5 board · {FABLE5_LEADERBOARD_LABEL}
-            </p>
-            <p className="font-mono text-[12px] font-bold text-[#6E6E73]">
-              {formatUsdPrecise(totalSpend)} · {formatCompactNumber(totalTokens)} tokens
-            </p>
-          </div>
-
           {rows.length === 0 ? (
             <p className="py-16 text-center text-[16px] font-semibold text-[#6E6E73]">
               Waiting for the first Fable 5 publish in the July 1-7, 2026 window.
             </p>
           ) : (
-            <div className="overflow-x-auto border border-[#D2D2D7]">
+            <TerminalCard
+              title={`tokmax — leaderboard/fable-5 — ${FABLE5_LEADERBOARD_LABEL} · ${formatUsdPrecise(totalSpend)} · ${formatCompactNumber(totalTokens)} tokens`}
+              live
+              tone="paper"
+            >
+              <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead className="bg-[#F5F5F7] text-[11px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">
                   <tr>
@@ -162,17 +148,20 @@ export default async function Fable5LeaderboardPage() {
                           {formatUsd(row.costUsd)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-right text-[#6E6E73]">
+                      <td
+                        className="px-4 py-4 text-right text-[#6E6E73]"
+                        title={formatInteger(row.totalTokens)}
+                      >
                         {formatCompactNumber(row.totalTokens)}
-                        <span className="ml-2 text-[12px] text-[#9A9AA0]">{formatInteger(row.totalTokens)}</span>
                       </td>
-                      <td className="px-4 py-4 text-right text-[#6E6E73]">{formatUsdPrecise(row.allCostUsd)}</td>
+                      <td className="px-4 py-4 text-right text-[#6E6E73]">{formatUsd(row.allCostUsd)}</td>
                       <td className="px-4 py-4 text-right font-mono text-[13px] text-[#6E6E73]">{row.lastDay}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </TerminalCard>
           )}
         </div>
       </section>

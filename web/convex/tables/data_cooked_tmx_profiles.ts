@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import type { Doc } from '../_generated/dataModel'
 import { internalMutation, query, type MutationCtx } from '../_generated/server'
 import {
-  FABLE5_LEADERBOARD_END,
+  FABLE5_LEADERBOARD_DATA_END,
   FABLE5_LEADERBOARD_START,
   FABLE5_WINDOW_VALUE_CAP_USD,
   TMX_VALUE_CAP_USD,
@@ -222,7 +222,10 @@ async function writeProfileFromRows(
     // entire publish window is inside the launch board window, all-time
     // modelSpend is safe to use. Mixed windows are intentionally ignored so
     // pre-July usage never leaks into the launch rank.
-    if (machine.firstDay >= FABLE5_LEADERBOARD_START && machine.lastDay <= FABLE5_LEADERBOARD_END) {
+    if (
+      machine.firstDay >= FABLE5_LEADERBOARD_START &&
+      machine.lastDay <= FABLE5_LEADERBOARD_DATA_END
+    ) {
       for (const m of machine.modelSpend ?? []) {
         if (!isFable5ModelId(m.model)) continue
         fable5LaunchCostUsd += m.costUsd
