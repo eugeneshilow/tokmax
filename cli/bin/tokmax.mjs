@@ -561,6 +561,20 @@ async function deleteCmd(rawArgs, apiBase) {
     console.error(`  Network error: ${err && err.message ? err.message : err}. Nothing was deleted.`);
     return 1;
   }
+  if (httpStatus === 401) {
+    // The token is no longer valid — most often the account was ALREADY
+    // deleted from another machine (delete is account-wide). Nothing to
+    // remove server-side; finish the job locally so a dead daily job doesn't
+    // keep firing with a revoked token forever.
+    await removeDaily().catch(() => {});
+    const wiped = await wipeLocal().catch(() => []);
+    console.log('\n  ✓ This sign-in is no longer valid — the account is already gone from the server');
+    console.log('    (deleted from another machine, or the login was revoked).');
+    console.log('    • this machine: daily auto-update removed');
+    console.log(`    • this machine: local files wiped${wiped.length ? ` (${wiped.join(', ')})` : ''}`);
+    console.log('  Nothing tokmax stored remains. Run `npx tokmax` anytime to start fresh.\n');
+    return 0;
+  }
   if (httpStatus !== 200 || !json || !json.ok) {
     console.error(`  Could not delete (HTTP ${httpStatus}). Your page was NOT removed.`);
     return 1;
