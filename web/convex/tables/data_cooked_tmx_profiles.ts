@@ -320,7 +320,14 @@ async function writeProfileFromRows(
     cliVersion: newestRow.cliVersion,
     suspicious,
     fable5Suspicious,
-    subscriptionUsd: newestRow.subscriptionUsd,
+    // MAX across machines, not newest-wins: machines detect their own local
+    // plans (a laptop with Max + ChatGPT Pro reports $400, a desktop with only
+    // Max reports $200). PROFIT/× divides the COMBINED burn, so newest-wins
+    // overstated the ratio whenever the cheaper machine published last. Plans
+    // overlap across one person's machines (same Max sub), so max ≈ the real
+    // monthly bill; summing would double-count the shared plan.
+    subscriptionUsd:
+      latest.reduce((mx, m) => Math.max(mx, m.subscriptionUsd ?? 0), 0) || undefined,
     account_x_user_id: accountXUserId,
     avatar_url: avatarUrl,
     name: accountName,
