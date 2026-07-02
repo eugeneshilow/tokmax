@@ -351,7 +351,20 @@ export const recomputeProfile = internalMutation({
   args: { nick: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await projectTmxProfile(ctx, args.nick)
+    // Admin recompute must keep verified profiles verified: the plain nick
+    // projector has no account context and would write verified:false / drop
+    // the avatar. Recover the account from the newest submissions instead.
+    const rows = await ctx.db
+      .query('data_raw_tmx_submissions')
+      .withIndex('by_nick_inserted', (q) => q.eq('nick', args.nick))
+      .order('desc')
+      .take(TMX_PROJECTOR_WINDOW)
+    const withAccount = rows.find((r) => r.account_x_user_id)
+    if (withAccount?.account_x_user_id) {
+      await projectTmxProfileForAccount(ctx, withAccount.account_x_user_id, args.nick)
+    } else {
+      await projectTmxProfile(ctx, args.nick)
+    }
     return null
   },
 })
