@@ -2,16 +2,22 @@ import { v } from 'convex/values'
 import type { Doc } from '../_generated/dataModel'
 import { internalMutation, query, type MutationCtx } from '../_generated/server'
 import {
+  FABLE5_LEADERBOARD_END,
+  FABLE5_LEADERBOARD_START,
+  FABLE5_WINDOW_VALUE_CAP_USD,
   TMX_VALUE_CAP_USD,
+  dateInFable5LeaderboardWindow,
+  isFable5ModelId,
   tmxDailyFields,
+  tmxModelSpendFields,
   tmxSourceFields,
   tmxTotalsFields,
   type TmxDaily,
+  type TmxModelSpend,
   type TmxSource,
   type TmxTotals,
 } from '../lib/tmx'
 
-// Публичная форма профиля (без системных полей Convex).
 const vTmxProfilePublic = v.object({
   nick: v.string(),
   firstDay: v.string(),
@@ -19,9 +25,14 @@ const vTmxProfilePublic = v.object({
   machineLabels: v.array(v.string()),
   sources: v.array(v.object(tmxSourceFields)),
   daily: v.array(v.object(tmxDailyFields)),
+  modelSpend: v.array(v.object(tmxModelSpendFields)),
   totals: v.object(tmxTotalsFields),
   costUsd: v.number(),
   totalTokens: v.number(),
+  fable5CostUsd: v.number(),
+  fable5Tokens: v.number(),
+  fable5LaunchCostUsd: v.number(),
+  fable5LaunchTokens: v.number(),
   submissionCount: v.number(),
   cliVersion: v.string(),
   suspicious: v.boolean(),
@@ -37,6 +48,23 @@ const vTmxLeaderboardRow = v.object({
   nick: v.string(),
   costUsd: v.number(),
   totalTokens: v.number(),
+  lastDay: v.string(),
+  machineLabels: v.array(v.string()),
+  updatedAt: v.number(),
+  avatar_url: v.optional(v.string()),
+  verified: v.optional(v.boolean()),
+})
+
+const vTmxFable5LeaderboardRow = v.object({
+  nick: v.string(),
+  costUsd: v.number(),
+  totalTokens: v.number(),
+  fable5CostUsd: v.number(),
+  fable5Tokens: v.number(),
+  fable5LaunchCostUsd: v.number(),
+  fable5LaunchTokens: v.number(),
+  allCostUsd: v.number(),
+  allTotalTokens: v.number(),
   lastDay: v.string(),
   machineLabels: v.array(v.string()),
   updatedAt: v.number(),
@@ -60,20 +88,11 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-// HARDENING #4: верхняя граница строк, которые проектор читает на один ник.
-// Раньше .collect() читал ВСЮ историю ника — неогр. read = self-DoS (ник с
-// тысячами публикаций раздувает каждую проекцию). Берём только N последних:
-// для снапшота важна последняя публикация на машину, а не вся история.
 const TMX_PROJECTOR_WINDOW = 60
 
 /**
- * Проектор (по нику, legacy capability-secret): иммутабельные публикации ника →
- * mutable снапшот профиля. Берёт ПОСЛЕДНЮЮ публикацию на каждую машину
- * (machineLabel) и суммирует по машинам.
  */
 export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise<void> {
-  // HARDENING #4: ограниченное чтение через compound-индекс [nick, insertedAt]
-  // (order desc → последние N), вместо .collect() всей истории ника.
   const rows = await ctx.db
     .query('data_raw_tmx_submissions')
     .withIndex('by_nick_inserted', (q) => q.eq('nick', nick))
@@ -83,10 +102,6 @@ export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise
 }
 
 /**
- * Проектор (по аккаунту, Sign in with X): группирует ВСЕ машины аккаунта по
- * immutable x_user_id и суммирует — 2-я машина с тем же X-логином авто-сливается
- * без ручного `--key`. Dedup по (account_x_user_id, machine_label). Профиль
- * пишется под nick=handle.
  */
 export async function projectTmxProfileForAccount(
   ctx: MutationCtx,
@@ -102,9 +117,6 @@ export async function projectTmxProfileForAccount(
 }
 
 /**
- * Общий сборщик снапшота: дедуп последней публикации на машину, сумма источников
- * и дней, запись/обновление cooked-профиля под ник. accountXUserId проставляется
- * в профиль для account-профилей (legacy → undefined).
  */
 async function writeProfileFromRows(
   ctx: MutationCtx,
@@ -121,7 +133,6 @@ async function writeProfileFromRows(
     return
   }
 
-  // Последняя публикация на каждую машину (внутри ограниченного окна).
   const latestByMachine = new Map<string, Doc<'data_raw_tmx_submissions'>>()
   for (const row of rows) {
     const cur = latestByMachine.get(row.machineLabel)
@@ -129,7 +140,6 @@ async function writeProfileFromRows(
   }
   const latest = Array.from(latestByMachine.values())
 
-  // Источники складываем по имени (Codex / Claude Code) поверх машин.
   const sourceMap = new Map<string, TmxSource>()
   for (const machine of latest) {
     for (const s of machine.sources) {
@@ -158,6 +168,70 @@ async function writeProfileFromRows(
   const sources = Array.from(sourceMap.values()).sort((a, b) => a.source.localeCompare(b.source))
   for (const s of sources) s.costUsd = round2(s.costUsd)
 
+  const modelSpendMap = new Map<string, TmxModelSpend>()
+  for (const machine of latest) {
+    for (const m of machine.modelSpend ?? []) {
+      const key = `${m.tool}|${m.model}`
+      const cur =
+        modelSpendMap.get(key) ??
+        ({
+          model: m.model,
+          tool: m.tool,
+          input: 0,
+          output: 0,
+          cacheCreate: 0,
+          cacheRead: 0,
+          reasoning: 0,
+          totalTokens: 0,
+          costUsd: 0,
+        } satisfies TmxModelSpend)
+      cur.input += m.input
+      cur.output += m.output
+      cur.cacheCreate += m.cacheCreate
+      cur.cacheRead += m.cacheRead
+      cur.reasoning += m.reasoning
+      cur.totalTokens += m.totalTokens
+      cur.costUsd += m.costUsd
+      modelSpendMap.set(key, cur)
+    }
+  }
+  const modelSpend = Array.from(modelSpendMap.values())
+    .map((m) => ({ ...m, costUsd: round2(m.costUsd) }))
+    .sort((a, b) => b.costUsd - a.costUsd || a.tool.localeCompare(b.tool) || a.model.localeCompare(b.model))
+
+  const fable5Rows = modelSpend.filter((m) => isFable5ModelId(m.model))
+  const fable5CostUsd = round2(fable5Rows.reduce((sum, m) => sum + m.costUsd, 0))
+  const fable5Tokens = fable5Rows.reduce((sum, m) => sum + m.totalTokens, 0)
+
+  let fable5LaunchCostUsd = 0
+  let fable5LaunchTokens = 0
+  for (const machine of latest) {
+    if (machine.dailyModelSpend && machine.dailyModelSpend.length > 0) {
+      for (const day of machine.dailyModelSpend) {
+        if (!dateInFable5LeaderboardWindow(day.date)) continue
+        for (const m of day.models) {
+          if (!isFable5ModelId(m.model)) continue
+          fable5LaunchCostUsd += m.costUsd
+          fable5LaunchTokens += m.totalTokens
+        }
+      }
+      continue
+    }
+
+    // Back-compat for the short-lived modelSpend-only payload: if a machine's
+    // entire publish window is inside the launch board window, all-time
+    // modelSpend is safe to use. Mixed windows are intentionally ignored so
+    // pre-July usage never leaks into the launch rank.
+    if (machine.firstDay >= FABLE5_LEADERBOARD_START && machine.lastDay <= FABLE5_LEADERBOARD_END) {
+      for (const m of machine.modelSpend ?? []) {
+        if (!isFable5ModelId(m.model)) continue
+        fable5LaunchCostUsd += m.costUsd
+        fable5LaunchTokens += m.totalTokens
+      }
+    }
+  }
+  fable5LaunchCostUsd = round2(fable5LaunchCostUsd)
+
   const totals = sources.reduce<TmxTotals>((t, s) => {
     t.input += s.input
     t.output += s.output
@@ -170,7 +244,6 @@ async function writeProfileFromRows(
   }, emptyTotals())
   totals.costUsd = round2(totals.costUsd)
 
-  // Дни складываем по дате поверх машин (токены + per-day $ для period-ранков).
   const dailyMap = new Map<string, TmxDaily>()
   for (const machine of latest) {
     for (const d of machine.daily) {
@@ -186,7 +259,6 @@ async function writeProfileFromRows(
       cur.codexTokens += d.codexTokens
       cur.claudeTokens += d.claudeTokens
       cur.totalTokens += d.totalTokens
-      // Back-compat: старая публикация без per-day $ → день стоит $0.
       cur.costUsd += d.costUsd ?? 0
       dailyMap.set(d.date, cur)
     }
@@ -201,17 +273,16 @@ async function writeProfileFromRows(
     latest[0].firstDay
   )
   const lastDay = latest.reduce((max, m) => (m.lastDay > max ? m.lastDay : max), latest[0].lastDay)
-  // rows[0] — самый свежий (order desc).
   const newestRow = rows[0]
-  // firstSeenAt считается по ограниченному окну, но реальный first seen
-  // фиксируется лишь на ПЕРВОМ insert (path ниже не патчит firstSeenAt), поэтому
-  // значение не «уплывает» при усечении окна.
   const firstSeenAt = rows.reduce((min, r) => Math.min(min, r.insertedAt), rows[0].insertedAt)
-  const suspicious = latest.some((m) => m.suspicious) || totals.costUsd > TMX_VALUE_CAP_USD
+  const submissionSuspicious = latest.some((m) => m.suspicious)
+  const suspicious = submissionSuspicious || totals.costUsd > TMX_VALUE_CAP_USD
+  // Launch-board gate is window-scoped (see FABLE5_WINDOW_VALUE_CAP_USD):
+  // lifetime whales stay eligible as long as their July window is plausible.
+  const fable5Suspicious =
+    submissionSuspicious || fable5LaunchCostUsd > FABLE5_WINDOW_VALUE_CAP_USD
   const now = Date.now()
 
-  // X-display: для account-профиля зеркалим avatar/name из biz_tmx_accounts и
-  // помечаем verified. Legacy (без аккаунта) — поля пусты, verified:false.
   let avatarUrl: string | undefined
   let accountName: string | undefined
   let verified = false
@@ -234,15 +305,18 @@ async function writeProfileFromRows(
     machineLabels,
     sources,
     daily,
+    modelSpend,
     totals,
     costUsd: totals.costUsd,
     totalTokens: totals.totalTokens,
-    // submissionCount считается по ограниченному окну (макс TMX_PROJECTOR_WINDOW)
-    // — для UI «сколько публикаций» этого достаточно, точный исторический счёт
-    // не нужен.
+    fable5CostUsd,
+    fable5Tokens,
+    fable5LaunchCostUsd,
+    fable5LaunchTokens,
     submissionCount: rows.length,
     cliVersion: newestRow.cliVersion,
     suspicious,
+    fable5Suspicious,
     subscriptionUsd: newestRow.subscriptionUsd,
     account_x_user_id: accountXUserId,
     avatar_url: avatarUrl,
@@ -263,7 +337,6 @@ async function writeProfileFromRows(
   }
 }
 
-/** Ручной/тестовый пересчёт профиля. */
 export const recomputeProfile = internalMutation({
   args: { nick: v.string() },
   returns: v.null(),
@@ -273,7 +346,6 @@ export const recomputeProfile = internalMutation({
   },
 })
 
-/** Публичный профиль для SSR-страницы `https://tokmax.vibecoding.tech/[nick]`. */
 export const getByNick = query({
   args: { nick: v.string() },
   returns: v.union(vTmxProfilePublic, v.null()),
@@ -296,6 +368,11 @@ export const getByNick = query({
       totals: profile.totals,
       costUsd: profile.costUsd,
       totalTokens: profile.totalTokens,
+      modelSpend: profile.modelSpend ?? [],
+      fable5CostUsd: profile.fable5CostUsd ?? 0,
+      fable5Tokens: profile.fable5Tokens ?? 0,
+      fable5LaunchCostUsd: profile.fable5LaunchCostUsd ?? 0,
+      fable5LaunchTokens: profile.fable5LaunchTokens ?? 0,
       submissionCount: profile.submissionCount,
       cliVersion: profile.cliVersion,
       suspicious: profile.suspicious,
@@ -309,14 +386,11 @@ export const getByNick = query({
   },
 })
 
-/** Leaderboard (surface — V1): топ по API-equivalent $, без suspicious. */
 export const listLeaderboard = query({
   args: { limit: v.optional(v.number()) },
   returns: v.array(vTmxLeaderboardRow),
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 200)
-    // Фильтр suspicious на уровне индекса (eq false), не после take: иначе
-    // suspicious-кластер (топ by_cost_usd) заполняет окно и обнуляет лидерборд.
     const rows = await ctx.db
       .query('data_cooked_tmx_profiles')
       .withIndex('by_suspicious_cost', (q) => q.eq('suspicious', false))
@@ -338,13 +412,47 @@ export const listLeaderboard = query({
   },
 })
 
+/** Special leaderboard for the Fable 5 launch: rank by July 1-7, 2026 spend only. */
+export const listFable5Leaderboard = query({
+  args: { limit: v.optional(v.number()) },
+  returns: v.array(vTmxFable5LeaderboardRow),
+  handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
+    const rows = await ctx.db
+      .query('data_cooked_tmx_profiles')
+      .withIndex('by_fable5_suspicious_launch_cost', (q) =>
+        q.eq('fable5Suspicious', false).gt('fable5LaunchCostUsd', 0)
+      )
+      .order('desc')
+      .take(limit)
+
+    return rows
+      .map((row) => {
+        const fable5CostUsd = row.fable5LaunchCostUsd ?? 0
+        const fable5Tokens = row.fable5LaunchTokens ?? 0
+        return {
+          nick: row.nick,
+          costUsd: fable5CostUsd,
+          totalTokens: fable5Tokens,
+          fable5CostUsd,
+          fable5Tokens,
+          fable5LaunchCostUsd: fable5CostUsd,
+          fable5LaunchTokens: fable5Tokens,
+          allCostUsd: row.costUsd,
+          allTotalTokens: row.totalTokens,
+          lastDay: row.lastDay,
+          machineLabels: row.machineLabels,
+          updatedAt: row.updatedAt,
+          avatar_url: row.avatar_url,
+          verified: row.verified,
+        }
+      })
+  },
+})
+
 // ---------------------------------------------------------------------------
-// Month/year leaderboards: ранжируем сумму per-day costUsd за календарный период
 // ---------------------------------------------------------------------------
 
-// Period-ряд = форма listLeaderboard + явное period-поле. costUsd здесь —
-// СТОИМОСТЬ ЗА ПЕРИОД (ranking value), не all-time; totalTokens — токены за тот
-// же период; periodCostUsd дублирует costUsd явным именем для UI.
 const vTmxPeriodLeaderboardRow = v.object({
   nick: v.string(),
   costUsd: v.number(),
@@ -357,15 +465,8 @@ const vTmxPeriodLeaderboardRow = v.object({
   verified: v.optional(v.boolean()),
 })
 
-// Bounded scan: читаем верх профилей по all-time $ через by_cost_usd (desc), и
-// уже в памяти пересчитываем стоимость за период из daily[]. Полностью точного
-// per-period индекса нет (period — произвольный месяц/год), поэтому ограничиваем
-// чтение жёстким потолком вместо неогр. скана всей таблицы. Датасет мал; кап
-// щедрый. Если профилей станет много, эволюция — отдельная period-агрегатная
-// таблица (проектор пишет per-period суммы).
 const TMX_PERIOD_SCAN_CAP = 1000
 
-/** "all" | "YYYY" (год) | "YYYY-MM" (месяц). Невалидное → "all". */
 function normalizePeriod(raw: string): string {
   if (raw === 'all') return 'all'
   if (/^\d{4}$/.test(raw)) return raw
@@ -373,7 +474,6 @@ function normalizePeriod(raw: string): string {
   return 'all'
 }
 
-/** Дата YYYY-MM-DD попадает в период? (год = первые 4, месяц = первые 7). */
 function dateInPeriod(date: string, period: string): boolean {
   if (period === 'all') return true
   if (period.length === 4) return date.slice(0, 4) === period
@@ -381,10 +481,6 @@ function dateInPeriod(date: string, period: string): boolean {
 }
 
 /**
- * Leaderboard за календарный период (месяц/год/all-time). Ранжирует по сумме
- * per-day costUsd, чьи даты попадают в период; suspicious исключены. "all"
- * берёт all-time costUsd/totalTokens профиля напрямую (back-compat: профили без
- * per-day $ всё равно ранжируются). Чтение ограничено TMX_PERIOD_SCAN_CAP.
  */
 export const listLeaderboardByPeriod = query({
   args: { period: v.string(), limit: v.optional(v.number()) },
@@ -393,8 +489,6 @@ export const listLeaderboardByPeriod = query({
     const period = normalizePeriod(args.period)
     const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
 
-    // Фильтр suspicious на уровне индекса (eq false), не после take: иначе
-    // suspicious-кластер заполняет TMX_PERIOD_SCAN_CAP-окно и обнуляет лидерборд.
     const rows = await ctx.db
       .query('data_cooked_tmx_profiles')
       .withIndex('by_suspicious_cost', (q) => q.eq('suspicious', false))
@@ -416,10 +510,6 @@ export const listLeaderboardByPeriod = query({
             verified: row.verified,
           }
         }
-        // Back-compat: профили, опубликованные ДО появления per-day $, имеют дни
-        // с токенами, но без costUsd → их период-сумма падала в 0 и фильтр ниже
-        // их выкидывал. Оцениваем недостающую per-day стоимость пропорционально
-        // токенам по blended-ставке профиля (all-time $ ÷ all-time tokens).
         const blendedRate = row.totalTokens > 0 ? row.costUsd / row.totalTokens : 0
         let costUsd = 0
         let totalTokens = 0
@@ -441,7 +531,6 @@ export const listLeaderboardByPeriod = query({
           verified: row.verified,
         }
       })
-      // Профили без активности в периоде (costUsd == 0) выпадают из ранга.
       .filter((row) => period === 'all' || row.costUsd > 0)
       .sort((a, b) => b.costUsd - a.costUsd)
 

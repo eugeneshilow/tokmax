@@ -2,11 +2,7 @@ import { v } from 'convex/values'
 import { internalMutation } from '../_generated/server'
 import { X_EXCHANGE_TTL_MS, X_SESSION_TTL_MS } from '../lib/x_auth'
 
-// "Sign in with X": короткоживущая OAuth2-сессия. Все мутации internal и
-// детерминированы — крипто (state/PKCE/exchange_code/token) делается выше, в
-// action xAuth / httpAction; сюда приходят уже готовые значения и хеши.
 
-/** begin: создать сессию авторизации (state уникален; TTL 10 мин). */
 export const createSession = internalMutation({
   args: {
     state: v.string(),
@@ -33,10 +29,6 @@ export const createSession = internalMutation({
 })
 
 /**
- * complete (шаг 1): АТОМАРНО потребить сессию по state. Reject если
- * отсутствует / протухла / уже использована (replay/CSRF-защита). Помечает
- * used=true и возвращает code_verifier+port для обмена кода. cli_nonce/secret в
- * URL больше не уходят — loopback-redirect несёт только exchange_code.
  */
 export const consumeSession = internalMutation({
   args: { state: v.string() },
@@ -56,7 +48,6 @@ export const consumeSession = internalMutation({
     if (!session) return { ok: false as const }
     if (session.used || Date.now() > session.expires_at) return { ok: false as const }
 
-    // Атомарный consume в рамках одной мутации-транзакции.
     await ctx.db.patch(session._id, { used: true })
     return {
       ok: true as const,
@@ -67,9 +58,6 @@ export const consumeSession = internalMutation({
 })
 
 /**
- * complete (шаг 2): привязать одноразовый exchange_code (хеш) + аккаунт к
- * сессии и переставить TTL на 60s (только loopback-redeem остаётся валидной
- * операцией). Реальный токен X к этому моменту уже отброшен.
  */
 export const attachExchange = internalMutation({
   args: {
@@ -94,17 +82,7 @@ export const attachExchange = internalMutation({
 })
 
 /**
- * redeem: АТОМАРНО потребить exchange_code (one-time + TTL + PKCE-style proof) и
- * вернуть identity аккаунта (handle + immutable x_user_id). Сам account-токен
- * генерится/хешится выше (httpAction) и кладётся в biz_tmx_account_tokens
- * отдельной мутацией — здесь токен НЕ пишется (multi-token: вход с новой машины
- * добавляет ряд, не инвалидируя другие).
  *
- * P1 (кража токена через перехват loopback-URL): связка — не cli_nonce (он
- * ехал бы в том же URL, что и exchange_code, и потому не защищал бы), а
- * redeem_secret_hash. CLI предъявляет сырой redeem_secret server-to-server;
- * сверяем SHA-256(redeem_secret) === сохранённый redeem_secret_hash ДО минта.
- * Секрет нигде не появляется в URL, поэтому утёкший exchange_code бесполезен.
  */
 export const redeemSession = internalMutation({
   args: {
@@ -133,14 +111,11 @@ export const redeemSession = internalMutation({
       .unique()
     if (!account) return { ok: false as const }
 
-    // Одноразовость: гасим exchange_code (повторный redeem невозможен). Токен в
-    // biz_tmx_account_tokens пишет httpAction отдельной мутацией (insertToken).
     await ctx.db.patch(session._id, { exchange_code_hash: null })
     return { ok: true as const, handle: account.handle, x_user_id: account.x_user_id }
   },
 })
 
-/** Крон-уборка протухших сессий (bounded read по времени истечения). */
 export const purgeExpired = internalMutation({
   args: {},
   returns: v.object({ deleted: v.number() }),

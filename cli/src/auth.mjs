@@ -17,12 +17,12 @@
 // carries just the exchange_code) is useless to a remote attacker without the
 // redeem_secret that lives only inside this CLI process.
 
-import os from 'node:os';
 import http from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
 import { saveAuth, deleteAuth } from './secrets.mjs';
+import { anonymousMachineLabel } from './util.mjs';
 
 const WEB_BASE = 'https://tokmax.vibecoding.tech';
 const LOOPBACK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -138,11 +138,13 @@ function startLoopback() {
 
 /**
  * Full login flow. Returns { handle, file } on success; throws on failure.
- * machineLabel (best-effort hostname) is stored server-side on this machine's
- * token row so the owner can recognise the device; multi-machine login is
- * additive — a new login never invalidates another machine's token.
+ * machineLabel (anonymized hash, never the raw hostname — hostnames often
+ * carry the owner's real name and labels surface publicly) is stored
+ * server-side on this machine's token row so the owner can recognise the
+ * device; multi-machine login is additive — a new login never invalidates
+ * another machine's token.
  */
-export async function login(apiBase, machineLabel = os.hostname()) {
+export async function login(apiBase, machineLabel = anonymousMachineLabel()) {
   // High-entropy redeem_secret (256-bit). Only its SHA-256 travels in the /start
   // URL; the raw secret stays in this process and is shown only to /redeem s2s.
   const redeemSecret = randomBytes(32).toString('hex');

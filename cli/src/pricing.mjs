@@ -235,3 +235,48 @@ export function aggregateSources(models, rateMap) {
 
   return { sources, totals };
 }
+
+/**
+ * Per-model spend, computed by the same CLI-authoritative formula as totals.
+ * This lets the server rank special model boards without recomputing prices.
+ *
+ * @returns {Array<object>}
+ */
+export function aggregateModelSpend(models, rateMap) {
+  return models
+    .map((m) => {
+      const usage = {
+        input: Math.max(0, m.input),
+        output: Math.max(0, m.output),
+        cacheCreate: Math.max(0, m.cacheCreate),
+        cacheRead: Math.max(0, m.cacheRead),
+        reasoning: Math.max(0, m.reasoning),
+      };
+      return {
+        model: m.model,
+        tool: m.tool,
+        ...usage,
+        totalTokens:
+          usage.input + usage.output + usage.cacheCreate + usage.cacheRead + usage.reasoning,
+        costUsd: round2(costForModel(resolveRates(rateMap, m.model), usage)),
+      };
+    })
+    .filter((m) => m.totalTokens > 0)
+    .sort((a, b) => b.costUsd - a.costUsd || a.tool.localeCompare(b.tool) || a.model.localeCompare(b.model));
+}
+
+/**
+ * Per-day, per-model spend. Used by fixed-window special boards where all-time
+ * modelSpend would overcount usage outside the launch period.
+ *
+ * @param {Array<{date:string, models:Array<object>}>} dailyModels
+ * @returns {Array<{date:string, models:Array<object>}>}
+ */
+export function aggregateDailyModelSpend(dailyModels, rateMap) {
+  return dailyModels
+    .map((day) => ({
+      date: day.date,
+      models: aggregateModelSpend(day.models || [], rateMap),
+    }))
+    .filter((day) => day.models.length > 0);
+}

@@ -4,14 +4,21 @@ import { TMX_VALUE_HARD_CAP_USD } from './lib/tmx'
 import { randomToken } from './lib/x_auth'
 
 // ===========================================================================
-// tokenmax self-serve platform (L2) — публичный self-serve приём (ISOLATED).
-// Публичный (без bearer): аноним по дизайну. Защита — capability-token на
-// апдейт + rate-limit по ipHash + value-cap + модерация ника + глобальный
-// дневной потолок + kill-switch. Крипто (хеши IP/секрета, генерация секрета)
-// здесь, в httpAction (не в детерминированной мутации).
 // ===========================================================================
 
 const http = httpRouter()
+
+type TmxModelSpendPayload = {
+  model: string
+  tool: string
+  input: number
+  output: number
+  cacheCreate: number
+  cacheRead: number
+  reasoning: number
+  totalTokens: number
+  costUsd: number
+}
 
 type TmxPublishArgs = {
   nick: string
@@ -28,6 +35,11 @@ type TmxPublishArgs = {
     cacheCreate: number
     cacheRead: number
     reasoning: number
+  }>
+  modelSpend?: TmxModelSpendPayload[]
+  dailyModelSpend?: Array<{
+    date: string
+    models: TmxModelSpendPayload[]
   }>
   sources: Array<{
     source: string
@@ -67,7 +79,6 @@ type TmxPublishResult =
     }
   | {
       ok: false
-      // HARDENING #6: value_too_high — жёсткий value-cap отклоняет публикацию.
       reason: 'nick_invalid' | 'nick_taken' | 'rate_limited' | 'empty_usage' | 'value_too_high'
       message?: string
       suggestion?: string
@@ -77,12 +88,7 @@ const tmxPublish = makeFunctionReference<'mutation', TmxPublishArgs, TmxPublishR
   'tables/data_raw_tmx_submissions:publish'
 )
 
-// "Sign in with X" — internal-функции БД для Bearer-публикации, loopback-redeem
-// и logout/revoke. makeFunctionReference (без зависимости от codegen).
 //
-// Multi-token: account-токены живут в biz_tmx_account_tokens (по ряду на
-// машину). resolveByTokenHash резолвит аккаунт по SHA-256(token) + трогает
-// last_used_at; insertToken добавляет токен новой машины; revoke* удаляют ряды.
 const tmxResolveToken = makeFunctionReference<
   'mutation',
   { token_hash: string },
@@ -134,8 +140,6 @@ function tmxInt(value: unknown): number {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0
 }
 
-// $ — дробное: tmxInt floor'ит и обнулил бы центы. Отдельный float-коэрсер:
-// non-negative, finite, round до центов, clamp по жёсткому value-cap.
 function tmxFloat(value: unknown): number {
   const n = Number(value)
   if (!Number.isFinite(n)) return 0
@@ -143,8 +147,6 @@ function tmxFloat(value: unknown): number {
   return Math.min(Math.max(0, rounded), TMX_VALUE_HARD_CAP_USD)
 }
 
-// HARDENING #5: payload caps. Понижены до 40 моделей / 120 дневных строк
-// (раньше 500/400) — bounds размер одной публикации (память мутации, storage).
 const TMX_MAX_MODELS = 40
 const TMX_MAX_DAILY = 120
 
@@ -164,21 +166,65 @@ function tmxCoerceModels(raw: unknown): TmxPublishArgs['models'] {
     .filter((m) => m.model.length > 0)
 }
 
+function tmxCoerceModelSpend(raw: unknown): TmxPublishArgs['modelSpend'] {
+  if (!Array.isArray(raw)) return undefined
+  return raw
+    .slice(0, TMX_MAX_MODELS)
+    .map((m) => ({
+      model: typeof m?.model === 'string' ? m.model.slice(0, 80) : '',
+      tool: typeof m?.tool === 'string' ? m.tool.slice(0, 40) : '',
+      input: tmxInt(m?.input),
+      output: tmxInt(m?.output),
+      cacheCreate: tmxInt(m?.cacheCreate),
+      cacheRead: tmxInt(m?.cacheRead),
+      reasoning: tmxInt(m?.reasoning),
+      totalTokens: tmxInt(m?.totalTokens),
+      costUsd: tmxFloat(m?.costUsd),
+    }))
+    .filter((m) => m.model.length > 0)
+}
+
+// Hard bound on how many raw per-day entries we even look at before sorting
+// (DoS guard); the real cap is TMX_MAX_DAILY of the NEWEST days below.
+const TMX_MAX_DAILY_RAW = 2000
+
+// Keep the NEWEST days when truncating. A heavy user's history is longer than
+// TMX_MAX_DAILY; keeping the oldest days would silently drop the current
+// month — including the whole Fable 5 launch window — for exactly the users
+// most likely to top the board.
+function tmxNewestDays<T extends { date: string }>(days: T[]): T[] {
+  return days
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, TMX_MAX_DAILY)
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+function tmxCoerceDailyModelSpend(raw: unknown): TmxPublishArgs['dailyModelSpend'] {
+  if (!Array.isArray(raw)) return undefined
+  const days = raw
+    .slice(0, TMX_MAX_DAILY_RAW)
+    .map((day) => ({
+      date: typeof day?.date === 'string' ? day.date.slice(0, 10) : '',
+      models: tmxCoerceModelSpend(day?.models) ?? [],
+    }))
+    .filter((day) => day.date.length > 0 && day.models.length > 0)
+  return tmxNewestDays(days)
+}
+
 function tmxCoerceDaily(raw: unknown): TmxPublishArgs['daily'] {
   if (!Array.isArray(raw)) return []
-  return raw
-    .slice(0, TMX_MAX_DAILY)
+  const days = raw
+    .slice(0, TMX_MAX_DAILY_RAW)
     .map((d) => ({
       date: typeof d?.date === 'string' ? d.date.slice(0, 10) : '',
       codexTokens: tmxInt(d?.codexTokens),
       claudeTokens: tmxInt(d?.claudeTokens),
-      // per-day $ (CLI считает; float). Старые клиенты не шлют → undefined.
       costUsd: d?.costUsd == null ? undefined : tmxFloat(d?.costUsd),
     }))
     .filter((d) => d.date.length > 0)
+  return tmxNewestDays(days)
 }
 
-// Источники приходят от клиента (CLI считает $). Токены — int, costUsd — float.
 function tmxCoerceSources(raw: unknown): TmxPublishArgs['sources'] {
   if (!Array.isArray(raw)) return []
   return raw
@@ -223,9 +269,6 @@ http.route({
   path: '/api/tmx/publish',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    // HARDENING #1: kill-switch. Оператор может мгновенно вырубить публичный
-    // приём через env TMX_PUBLISH_ENABLED=false (без редеплоя кода). Default —
-    // включён (любое значение кроме строки "false").
     if (process.env.TMX_PUBLISH_ENABLED === 'false') {
       return tmxJson({ ok: false, reason: 'disabled' }, 503)
     }
@@ -243,8 +286,6 @@ http.route({
 
     // HARD-CUT pre-0.7 clients: since 0.7 the CLI computes $ and CARRIES it
     // (sources[] + totals.costUsd). The server is a dumb store — no recompute
-    // fallback. A payload без totals/sources не может дать честный $, поэтому
-    // отклоняем, а не пишем строку с costUsd=0 (которая отравила бы leaderboard).
     const totalsObj =
       body.totals && typeof body.totals === 'object' ? (body.totals as Record<string, unknown>) : null
     if (!Array.isArray(body.sources) || !totalsObj || !Number.isFinite(Number(totalsObj.costUsd))) {
@@ -263,11 +304,6 @@ http.route({
       .map((s) => s.trim())
       .filter(Boolean)
     const ip = xffParts.length ? xffParts[xffParts.length - 1] : 'unknown'
-    // HARDENING #8: НЕ публичная константа-соль. Читаем TMX_IP_SALT; если не
-    // задан — fallback на per-deployment значение (URL развёртывания уникален
-    // на деплой) + warning в логи, чтобы оператор выставил TMX_IP_SALT. Не
-    // крашимся. ipHash — лишь для эфемерного rate-limit; сырая строка соли
-    // наружу не уходит, в ряд пишется только солёный хеш.
     let salt = process.env.TMX_IP_SALT
     if (!salt) {
       salt = process.env.CONVEX_CLOUD_URL ?? process.env.CONVEX_SITE_URL ?? 'tmx-deployment-salt'
@@ -277,10 +313,6 @@ http.route({
     }
     const ipHash = await tmxSha256Hex(`${salt}:${ip}`)
 
-    // "Sign in with X" path: Bearer account-токен → резолвим аккаунт по
-    // SHA-256(token). Найден → публикуем под handle аккаунта (account_x_user_id),
-    // legacy capability-secret игнорируется. Не найден → 401 (токен невалиден/
-    // отозван), мутацию не зовём. Нет Bearer → legacy путь (как раньше).
     const authHeader = request.headers.get('authorization') ?? ''
     const bearer = authHeader.toLowerCase().startsWith('bearer ')
       ? authHeader.slice(7).trim()
@@ -289,7 +321,6 @@ http.route({
     let accountNick: string | null = null
     if (bearer) {
       const tokenHash = await tmxSha256Hex(bearer)
-      // Multi-token: резолвим аккаунт по ряду токена этой машины (+ last_used_at).
       const account = await ctx.runMutation(tmxResolveToken, { token_hash: tokenHash })
       if (!account) {
         return tmxJson({ ok: false, reason: 'unauthorized' }, 401)
@@ -305,8 +336,6 @@ http.route({
     const candidateSecretHash = await tmxSha256Hex(newSecret)
 
     const result = await ctx.runMutation(tmxPublish, {
-      // Account-путь: ник всегда = handle аккаунта (нельзя выдать себя за другой
-      // ник). Legacy: ник из тела.
       nick: accountNick ?? body.nick,
       cliVersion: typeof body.cliVersion === 'string' ? body.cliVersion.slice(0, 40) : 'unknown',
       pricingVersion:
@@ -318,6 +347,8 @@ http.route({
           ? body.machineLabel.slice(0, 60)
           : 'this machine',
       models: tmxCoerceModels(body.models),
+      modelSpend: tmxCoerceModelSpend(body.modelSpend),
+      dailyModelSpend: tmxCoerceDailyModelSpend(body.dailyModelSpend),
       sources: tmxCoerceSources(body.sources),
       totals: tmxCoerceTotals(body.totals),
       daily: tmxCoerceDaily(body.daily),
@@ -334,7 +365,6 @@ http.route({
     })
 
     if (!result.ok) {
-      // HARDENING #6: value_too_high → 400 (через default ветку).
       const status =
         result.reason === 'nick_taken' ? 409 : result.reason === 'rate_limited' ? 429 : 400
       return tmxJson(
@@ -353,7 +383,6 @@ http.route({
         ok: true,
         created: result.created,
         nick: result.nick,
-        // Канонический served URL профиля.
         url: `https://tokmax.vibecoding.tech/${result.nick}`,
         suspicious: result.suspicious,
         costUsd: result.costUsd,
@@ -384,15 +413,7 @@ http.route({
 // "Sign in with X" — loopback CLI endpoints (server-to-server).
 // ===========================================================================
 
-// redeem: CLI loopback POST'ит сюда {exchange_code, redeem_secret}. Реальный
-// account-токен возвращается в ТЕЛЕ ответа (никогда в URL). Сервер генерит
-// высокоэнтропийный токен, хранит только его SHA-256, отдаёт plaintext один раз.
 //
-// P1 (кража токена через перехват loopback-URL): redeem_secret — PKCE-style
-// доказательство владения, которое CLI держит у себя и шлёт server-to-server
-// (никогда в URL). Сверяем SHA-256(redeem_secret) с сохранённым на сессии
-// redeem_secret_hash. exchange_code сам по себе (то, что уехало в loopback-URL)
-// не редимится — без redeem_secret он бесполезен.
 http.route({
   path: '/api/auth/x/redeem',
   method: 'POST',
@@ -405,7 +426,6 @@ http.route({
     }
     const exchangeCode = typeof body.exchange_code === 'string' ? body.exchange_code : ''
     const redeemSecret = typeof body.redeem_secret === 'string' ? body.redeem_secret : ''
-    // best-effort метка машины (hostname) — для распознавания устройства владельцем.
     const machineLabel =
       typeof body.machine_label === 'string' && body.machine_label.trim().length > 0
         ? body.machine_label.slice(0, 60)
@@ -416,7 +436,6 @@ http.route({
 
     const exchangeCodeHash = await tmxSha256Hex(exchangeCode)
     const redeemSecretHash = await tmxSha256Hex(redeemSecret)
-    // Высокоэнтропийный отзываемый account-токен; храним только хеш.
     const token = randomToken(32)
     const tokenHash = await tmxSha256Hex(token)
 
@@ -427,7 +446,6 @@ http.route({
     if (!result.ok) {
       return tmxJson({ ok: false, reason: 'invalid_or_expired' }, 400)
     }
-    // Multi-token: ДОБАВЛЯЕМ ряд токена этой машины (не инвалидируя другие).
     await ctx.runMutation(tmxInsertToken, {
       account_x_user_id: result.x_user_id,
       token_hash: tokenHash,
@@ -437,9 +455,6 @@ http.route({
   }),
 })
 
-// revoke (logout): CLI шлёт Authorization: Bearer <token>; удаляем ряд токена
-// этой машины. Тело {all:true} → удаляем ВСЕ токены аккаунта (logout --all).
-// Best-effort — всегда ok, чтобы не утекала инфа о валидности токена.
 http.route({
   path: '/api/auth/x/revoke',
   method: 'POST',
@@ -453,7 +468,6 @@ http.route({
       const body = (await request.json()) as Record<string, unknown>
       all = body?.all === true
     } catch {
-      // Тело необязательно — без него выходим только на этой машине.
     }
     if (bearer) {
       const tokenHash = await tmxSha256Hex(bearer)

@@ -96,14 +96,10 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
 
   if (!profile) notFound()
 
-  // Период из URL: "all" | "YYYY" | "YYYY-MM". Невалидное → all-time.
   const { period: rawPeriod } = await searchParams
   const period =
     typeof rawPeriod === 'string' && /^(all|\d{4}|\d{4}-\d{2})$/.test(rawPeriod) ? rawPeriod : 'all'
 
-  // Срез по периоду. daily-даты — "YYYY-MM-DD", поэтому startsWith ловит и год, и месяц.
-  // Если в выбранном периоде нет дней (не должно случаться через сгенерированные
-  // опции, но страхуемся) — откатываемся на all-time.
   const requestedDaily =
     period === 'all' ? profile.daily : profile.daily.filter((d) => d.date.startsWith(period))
   const effectivePeriod = period !== 'all' && requestedDaily.length === 0 ? 'all' : period
@@ -119,7 +115,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   const viewFirst = viewDaily.length ? viewDaily[0].date : profile.firstDay
   const viewLast = viewDaily.length ? viewDaily[viewDaily.length - 1].date : profile.lastDay
 
-  // Опции селектора строим из реальных данных профиля: месяцы и годы из daily[].
   const monthSet = new Set<string>()
   const yearSet = new Set<string>()
   for (const d of profile.daily) {
@@ -154,7 +149,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
     return { windowBurn, sub, ratio, profit: windowBurn - sub }
   })()
 
-  // Ранг в лидерборде (фидбек @nikmcfly: «без лидерборда я как лох со ссылкой»).
   const board = await loadTmxLeaderboard(200)
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
@@ -217,7 +211,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
     },
   ]
 
-  // Пилюли периода: активная — оранжевая, остальные — приглушённые (тёмный hero).
   function pillClass(active: boolean): string {
     return active
       ? 'inline-flex h-8 items-center rounded-full bg-[#FF7A1A] px-3 font-mono text-[12px] font-bold text-black'
@@ -259,7 +252,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               </div>
             ) : null}
 
-            {/* #2: анонимные (не X-verified) профили помечаем явно — чужой хендл здесь не доказан. */}
             {!profile.verified ? (
               <div className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-mono text-[12px] font-bold uppercase tracking-[0.08em] text-[#9A9AA0]">
                 <ShieldAlert className="h-3.5 w-3.5" />
@@ -286,9 +278,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               📊 counted with ccusage · priced at LiteLLM API rates
             </p>
 
-            {/* Period selector: какой период отражают цифры страницы. Ссылки на
-                ?period=… держат серверный компонент (force-dynamic). Опции — из
-                реальных данных профиля. */}
             {monthOptions.length > 0 ? (
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <span className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#6E6E73]">
@@ -333,8 +322,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               </span>
             </div>
 
-            {/* Rank: the leaderboard brag. All-time only — период не должен
-                показывать all-time ранг как ранг периода. */}
             {effectivePeriod === 'all' && rank ? (
               <Link
                 href="/leaderboard"
@@ -352,8 +339,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               </p>
             ) : null}
 
-            {/* Casino-dopamine PROFIT block: green glow, huge +$profit + N× (owner: «PROFIT
-                зелёным + сколько иксов, стилистика аля казино, куча дофамина»). Only when a
+            {/* Casino-dopamine PROFIT block: green glow, huge +$profit + multiplier. Only when a
                 subscription is known. <1× = no shaming, "room to burn" instead. */}
             {econ ? (
               econ.profit >= 0 ? (
@@ -418,7 +404,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
             {/* Actions + classy screenshot nudge. */}
             <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
               <Link
-                href="https://t.me/shilovtech"
+                href="https://x.com/shilovtech"
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -523,7 +509,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               }
             />
             <div className="mt-4 grid gap-2">
-              {/* Новые дни сверху: проектор хранит daily по возрастанию даты — реверсим. */}
               {[...viewDaily].reverse().map((day) => (
                 <DailyBar key={day.date} day={day} max={maxDailyCost} />
               ))}
@@ -596,7 +581,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
                 <Link
-                  href="https://t.me/shilovtech"
+                  href="https://x.com/shilovtech"
                   className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -661,7 +646,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               {formatUsdPrecise(viewCost)}
             </span>
             <span className="rounded-lg border border-[#D2D2D7] px-3 py-2">{shareUrl}</span>
-            <span className="rounded-lg bg-[#1D1D1F] px-3 py-2 text-white">tokenmax</span>
+            <span className="rounded-lg bg-[#1D1D1F] px-3 py-2 text-white">tokmax</span>
           </div>
         </div>
       </section>
