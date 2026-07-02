@@ -36,3 +36,37 @@ export function fable5ChipLabel(): string {
   if (c.over) return 'FABLE 5 · FINAL RESULTS'
   return `FABLE 5 · DAY ${c.day}/7 · ${c.daysLeft} DAY${c.daysLeft === 1 ? '' : 'S'} LEFT`
 }
+
+// ── Stack Math ──────────────────────────────────────────────────────────────
+// The event's second job (owner decision, 2026-07-02): help people decide
+// whether a SECOND (third, …) subscription pays for itself. Marginal price of
+// stacking one more Claude Max 20×:
+export const MARGINAL_MAX_USD_PER_MO = 200
+
+export type Fable5StackMath = {
+  daysElapsed: number
+  weeklyRateUsd: number
+  monthlyRateUsd: number
+  secondSubMultiple: number
+}
+
+/**
+ * Extrapolate the window pace. Honest framing matters: logs only show what
+ * the 50% cap LET the user burn, so the pace UNDERSTATES real demand — that
+ * is the pro-argument, printed next to the number, never silently baked in.
+ * This is a decision aid on API-equivalent value, not financial advice.
+ */
+export function fable5StackMath(windowBurnUsd: number): Fable5StackMath | null {
+  const c = fable5Countdown()
+  if (!c.started || windowBurnUsd <= 0) return null
+  const daysElapsed = Math.max(1, c.over ? 7 : c.day)
+  const dailyRate = windowBurnUsd / daysElapsed
+  const weeklyRateUsd = dailyRate * 7
+  const monthlyRateUsd = dailyRate * 30
+  return {
+    daysElapsed,
+    weeklyRateUsd,
+    monthlyRateUsd,
+    secondSubMultiple: monthlyRateUsd / MARGINAL_MAX_USD_PER_MO,
+  }
+}

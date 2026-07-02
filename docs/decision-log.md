@@ -2,6 +2,27 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-02 — Fable 5 Week is its own product entity
+
+- Two products live here and must not blur: **tokmax** (the evergreen meter +
+  boards) and **Fable 5 Week** (a time-boxed launch-week event). The frame is
+  platform + seasonal event: the event nests inside tokmax (badge "a tokmax
+  launch-week board" + countdown on every event surface), never the other way
+  around; tokmax pages carry exactly ONE loud event surface (the landing strip).
+- The event has two jobs: (1) flex/virality via the window board, and
+  (2) **Stack Math** — a decision aid for buying a second (third, …)
+  subscription: `weekly pace = window burn ÷ days elapsed × 7`,
+  `2nd-sub payback = monthly pace ÷ $200` (marginal Max 20×). The honest
+  asymmetry prints WITH the number: capped logs UNDERSTATE demand, so the
+  stack pays back more, not less; a third sub only pays if still capped with
+  two. Always labeled: API-equivalent value, not cash — not financial advice.
+- The event hub lives at top-level `/fable-5` (redirect from
+  `/leaderboard/fable-5`): countdown + board + Stack Math + how-to-enter;
+  after July 7 it freezes into final results + the franchise line ("every
+  major model launch gets a launch-week board").
+- Stack Math surfaces: hub section (community + #1 pace), profile receipt
+  line, CLI post-scan line (0.9.14).
+
 ## 2026-07-02 — international, English-only
 
 - The repo and all public surfaces are English-only; the owner's RU-brand link

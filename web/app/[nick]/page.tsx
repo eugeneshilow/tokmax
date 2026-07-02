@@ -1,6 +1,6 @@
 import { AnsiMoney } from '@/components/ansi-money'
 import { TerminalCard } from '@/components/terminal-card'
-import { fable5Countdown } from '@/lib/fable5'
+import { MARGINAL_MAX_USD_PER_MO, fable5Countdown, fable5StackMath } from '@/lib/fable5'
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
 import {
   loadTmxProfile,
@@ -156,6 +156,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
   const countdown = fable5Countdown()
+  const stackMath = fable5StackMath(profile.fable5LaunchCostUsd ?? 0)
 
   // One-click share: pre-filled post with the numbers. The paste/screenshot IS
   // the viral loop — the button must cost the visitor zero effort.
@@ -439,11 +440,30 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                       ) : null}
                       {!countdown.over && (profile.fable5LaunchCostUsd ?? 0) > 0 ? (
                         <p className="text-[#D2D2D7]">
-                          ⏳ <span className="font-bold text-[#FF7A1A]">FABLE 5</span> · day{' '}
-                          {countdown.day} of 7 · {formatUsd(profile.fable5LaunchCostUsd)} in window ·{' '}
+                          ⏳{' '}
+                          <Link href="/fable-5" className="font-bold text-[#FF7A1A] hover:underline">
+                            FABLE 5
+                          </Link>{' '}
+                          · day {countdown.day} of 7 ·{' '}
+                          {formatUsd(profile.fable5LaunchCostUsd)} in window ·{' '}
                           <span className="font-bold text-[#FF7A1A]">
                             {countdown.daysLeft} day{countdown.daysLeft === 1 ? '' : 's'} left
                           </span>
+                        </p>
+                      ) : null}
+                      {stackMath && !countdown.over ? (
+                        // The event's second job: second-subscription math.
+                        // Honest asymmetry: capped logs UNDERSTATE demand.
+                        <p className="text-[#D2D2D7]">
+                          ⚖️{' '}
+                          <span className="font-bold text-white">
+                            {formatUsd(stackMath.weeklyRateUsd)}/wk
+                          </span>{' '}
+                          pace · 2nd Max (${MARGINAL_MAX_USD_PER_MO}/mo) pays back{' '}
+                          <span className="font-bold text-[#18D86B]">
+                            {stackMath.secondSubMultiple.toFixed(1)}×
+                          </span>{' '}
+                          <span className="text-[#6E6E73]">if you&apos;re capped</span>
                         </p>
                       ) : null}
                     </div>
