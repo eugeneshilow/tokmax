@@ -20,7 +20,7 @@ It reads your local Claude Code logs (and Codex too, if you use it), counts toke
 
 My number: **~$2,870 · 3.5B tokens · ~3 weeks** of API-equivalent tokens. Made the subscription feel like a steal.
 
-It publishes a small profile to a public leaderboard so you can compare. Mine: tokmax.vibecoding.tech/<nick>
+It publishes a small profile to a public leaderboard so you can compare. Mine: tokmax.dev/<nick>
 
 Privacy, because a tool that reads your logs *should* make you suspicious:
 - Only aggregates leave your machine: token **counts** per model, dates, and a machine label.

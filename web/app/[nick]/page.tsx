@@ -127,7 +127,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   const monthOptions = [...monthSet].sort().reverse()
   const yearOptions = [...yearSet].sort().reverse()
 
-  const shareUrl = `tokmax.vibecoding.tech/${profile.nick}`
+  const shareUrl = `tokmax.dev/${profile.nick}`
   const peakDay =
     viewDaily.length > 0
       ? viewDaily.reduce((max, day) => (day.totalTokens > max.totalTokens ? day : max))
@@ -349,12 +349,12 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
             {/* Actions + classy screenshot nudge. */}
             <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
               <Link
-                href="https://x.com/shilovtech"
+                href="https://x.com/eugeneshilow"
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                @shilovtech
+                @eugeneshilow
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
               <Link
@@ -557,12 +557,12 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
                 <Link
-                  href="https://x.com/shilovtech"
+                  href="https://x.com/eugeneshilow"
                   className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  @shilovtech
+                  @eugeneshilow
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
                 <Link

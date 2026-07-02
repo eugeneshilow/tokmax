@@ -78,7 +78,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
               tokmax
             </div>
             <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#DFFFEA' }}>
-              tokmax.vibecoding.tech
+              tokmax.dev
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -172,7 +172,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
             </div>
           </div>
           <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#DFFFEA' }}>
-            tokmax.vibecoding.tech
+            tokmax.dev
           </div>
         </div>
 
@@ -247,7 +247,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
             </div>
           )}
           <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#18D86B' }}>
-            tokmax.vibecoding.tech/{profile.nick}
+            tokmax.dev/{profile.nick}
           </div>
         </div>
       </div>

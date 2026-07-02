@@ -6,7 +6,7 @@ Show HN: tokmax – what your Codex/Claude Code usage would cost at API prices
 
 URL (paste into the url field):
 
-https://tokmax.vibecoding.tech
+https://tokmax.dev
 
 ---
 
@@ -24,7 +24,7 @@ How it works:
 - Sums tokens per model.
 - Dedupes session resumes, so context replayed across continued sessions isn't double-counted.
 - The client sends only counts; the server recomputes the dollar figure from those counts at public per-model rates, so the conversion can't be fudged.
-- You get a profile at tokmax.vibecoding.tech/<nick> and a spot on a public leaderboard (who burned the most).
+- You get a profile at tokmax.dev/<nick> and a spot on a public leaderboard (who burned the most).
 
 Optional: enter your $/mo subscription and the page shows how many times over your usage paid back the sub (API-equivalent ÷ subscription = N×).
 

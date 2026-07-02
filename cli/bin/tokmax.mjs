@@ -2,7 +2,7 @@
 //
 // tokmax — scan local Codex + Claude Code logs, aggregate per-model token
 // usage, preview the API-equivalent $, and publish the aggregate to the
-// tokenmax leaderboard (tokmax.vibecoding.tech).
+// tokmax leaderboard (tokmax.dev).
 //
 // Ways to run:
 //   npx tokmax            → interactive onboarding (Quick anonymous OR Sign in with X)
@@ -49,7 +49,7 @@ import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
 import { detectSubscription } from '../src/plan.mjs';
 
 const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
-const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
+const PAGE_BASE = 'https://tokmax.dev'; // short brand domain (redirects to the serving host)
 const REPO_URL = 'https://github.com/eugeneshilow/tokmax';
 const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
 const FABLE5_LEADERBOARD_START = '2026-07-01';

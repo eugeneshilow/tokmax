@@ -17,7 +17,7 @@ Alternates to A/B:
 
 ## 3. DESCRIPTION (~3–5 sentences)
 
-tokmax reads your local Codex and Claude Code logs and answers one question: what would your token usage have cost at raw API prices instead of a flat subscription? Run `npx tokmax` — no install, no signup, no account, no email. You get your number (the maker's: **~$2,870 · 3.5B tokens · ~3 weeks** of API-equivalent usage), a public profile at `tokmax.vibecoding.tech/<nick>`, and a spot on the leaderboard. Enter your $/mo plan and it shows how many times over your usage paid back the subscription (API-equivalent ÷ subscription = N×).
+tokmax reads your local Codex and Claude Code logs and answers one question: what would your token usage have cost at raw API prices instead of a flat subscription? Run `npx tokmax` — no install, no signup, no account, no email. You get your number (the maker's: **~$2,870 · 3.5B tokens · ~3 weeks** of API-equivalent usage), a public profile at `tokmax.dev/<nick>`, and a spot on the leaderboard. Enter your $/mo plan and it shows how many times over your usage paid back the subscription (API-equivalent ÷ subscription = N×).
 
 **Privacy:** only aggregates ever leave your machine — token counts per model, dates, and a machine label. Never your prompts, code, file contents, tool output, or API keys. It's open source, so check the code yourself: github.com/eugeneshilow/tokmax
 
@@ -41,7 +41,7 @@ No signup, no account, no email. Just:
 npx tokmax
 ```
 
-You'll get a profile at `tokmax.vibecoding.tech/<nick>` and a spot on the leaderboard. Run it, screenshot your number, and drop it in the comments — I genuinely want to see who's burning the most. 🔥
+You'll get a profile at `tokmax.dev/<nick>` and a spot on the leaderboard. Run it, screenshot your number, and drop it in the comments — I genuinely want to see who's burning the most. 🔥
 
 It's free: no account, no upsell, nothing to log in to. Happy to answer anything.
 
@@ -70,7 +70,7 @@ Backups for cross-tagging / if a slot frees up:
 
 2. **The leaderboard** — the public ranked list, nicks sorted by API-equivalent $. Show 8–10 rows so the "who burned the most" angle reads instantly.
 
-3. **A profile page** — `tokmax.vibecoding.tech/<nick>` showing the per-model token breakdown and the API-equivalent ÷ subscription multiplier (illustrative: ~14× on a ≈$205/mo plan — "your usage paid back your plan 14×"; not the maker's real plan).
+3. **A profile page** — `tokmax.dev/<nick>` showing the per-model token breakdown and the API-equivalent ÷ subscription multiplier (illustrative: ~14× on a ≈$205/mo plan — "your usage paid back your plan 14×"; not the maker's real plan).
 
 4. **Privacy two-column graphic** — "Stays on your machine" (prompts, code, file contents, tool output, API keys) vs "Leaves your machine" (token counts per model, dates, machine label). Same trust line as the copy. Calms the "a tool reading my logs?" reflex.
 

@@ -383,7 +383,7 @@ http.route({
         ok: true,
         created: result.created,
         nick: result.nick,
-        url: `https://tokmax.vibecoding.tech/${result.nick}`,
+        url: `https://tokmax.dev/${result.nick}`,
         suspicious: result.suspicious,
         costUsd: result.costUsd,
         totalTokens: result.totalTokens,

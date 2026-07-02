@@ -1,7 +1,7 @@
 {
   "name": "tokmax",
-  "version": "0.9.12",
-  "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokenmax leaderboard (tokmax.vibecoding.tech). Prices: LiteLLM, counting: ccusage. Aggregates only \u2014 never your prompts, files, or keys.",
+  "version": "0.9.13",
+  "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokmax leaderboard (tokmax.dev). Prices: LiteLLM, counting: ccusage. Aggregates only — never your prompts, files, or keys.",
   "type": "module",
   "bin": {
     "tokmax": "bin/tokmax.mjs"
@@ -14,7 +14,7 @@
     "type": "git",
     "url": "git+https://github.com/eugeneshilow/tokmax.git"
   },
-  "homepage": "https://tokmax.vibecoding.tech",
+  "homepage": "https://tokmax.dev",
   "keywords": [
     "codex",
     "claude-code",

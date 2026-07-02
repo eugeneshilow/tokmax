@@ -10,13 +10,13 @@ npx tokmax
 ```
 
 It scans your logs, shows your number in the terminal, and publishes your page at
-**tokmax.vibecoding.tech/your-handle**. Screenshot it, drop it in a chat, climb the
+**tokmax.dev/your-handle**. Screenshot it, drop it in a chat, climb the
 board. Sign in with X and every machine you code on merges into one combined total.
 
 **Only numbers ever leave your machine** — never your prompts, code, API keys, or
 raw logs. It's open source so you can check that yourself.
 
-- 🔗 **Dashboard & leaderboard:** https://tokmax.vibecoding.tech
+- 🔗 **Dashboard & leaderboard:** https://tokmax.dev
 - ⚡ **Try it:** `npx tokmax` · options: `npx tokmax --help`
 - 🗑️ **Your data, your call:** `npx tokmax daily off` · `npx tokmax delete`
 

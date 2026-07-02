@@ -1,60 +1,9 @@
-# Findings log — методология подсчёта (не переизобретать!)
+# Methodology Findings Log
 
-Append-only, **новое сверху**. Сюда складываем выясненные факты/косяки про подсчёт токенов
-и цен, чтобы в следующий раз не копать заново. Канон — [README.md](README.md).
+Use this file for short, dated notes about pricing, counting, or aggregation changes.
 
----
+## 2026-07-01
 
-## 2026-06-28 · Рефактор внедрён + грабли деплоя
-**Сделано:** цены ← LiteLLM (бандл `cli/src/pricing/` + override 1:1 со старой таблицей →
-число не сдвинулось), CLI считает $ нашей формулой и шлёт `sources[]`/`totals.costUsd`,
-Convex = dumb-store (hard-cut pre-0.7, caps на клиентском cost), `tmx_pricing.ts` +
-`/api/tmx/pricing` удалены. Атрибуция на странице (RU/EN) + README + npm. cli **0.7.0**.
-Провалидировано: dry-run $3,109–3,125 (НЕ $5,593), prod runtime-тесты (gate/caps/happy) ✓.
-**Грабли:** (1) `npx convex codegen` ≠ деплой — он только регенерит типы, код на деплой
-НЕ пушит (агент решил, что запушил → я тестил старый код, гейт «не сработал»; на самом
-деле гейт верный). Деплой = `convex dev --once` (dev) / `convex deploy` (prod). (2) dev
-был НЕ пуст — реальная строка `nikmcfly` (старая схема) блокировала миграцию (drop
-`hasUnknownModels`); на песочнице чистится `purgeNick`, на проде было пусто. (3) `tmxFloat`
-КЛАМПит к hard-cap (250k) до мутации → отправка $300k стала suspicious-$250k (скрыта), а
-не value_too_high — это ок (видимого фейка нет), но знать.
-
-## 2026-06-28 · ccusage завышает Codex: cache-read по полной input-ставке (×10)
-**Находка:** ccusage тарифицирует Codex **cached-read** токены по полной **input**-ставке
-($5/1M), а не по дисконту cache-read ($0.5/1M). Наш Codex на 93% из cache-read (1.63B из
-1.76B) → его Codex-$ раздут **~2.4×** ($1,640 → $3,943), итог $3,043 → $5,593.
-**Доказательство:** день 2026-06-09: ccusage $6.47 = `in×5 + out×30 + cacheRead×5(!)`;
-правильно (cacheRead×0.5) = $2.85 — сошлось до цента.
-**Вывод:** для **счёта токенов** ccusage берём, для **$** — НЕ берём его число на Codex;
-считаем своей формулой с дисконтом cache. → зарепортить апстрим (good citizen).
-
-## 2026-06-28 · Наши ручные ставки СОВПАЛИ с LiteLLM (валидация)
-`gpt-5.5` = 5/30/0.5 и `claude-opus-4-8` = 5/25/6.25/0.5 — **точь-в-точь** как в LiteLLM.
-Значит наша таблица была корректной; переход на LiteLLM меняет не значения, а способ
-поддержки (maintained). Число при переходе не прыгает.
-
-## 2026-06-28 · Токены: наш счёт == ccusage (±0.4%)
-3.71B (наши) vs 3.72B (ccusage) на одних логах. → наш дедуп по `message.id` работает,
-методология счёта верная. Дедуп ccusage: `hash(message.id+requestId)`, **max-wins** (а не
-first-wins — это фикс их же issue #888), записи без `message.id` не дропаются.
-
-## 2026-06-28 · LiteLLM — дыры в покрытии моделей (нужен override)
-- `claude-3-5-haiku` / `claude-3-5-sonnet` — **нет голых ключей**, только провайдер-
-  префиксные (`anthropic.claude-3-5-haiku-...`). Claude Code логирует фоновую модель как
-  `claude-3-5-haiku-20241022` → не матчится напрямую, нужен маппинг/strip-префикса.
-- Свежие модели лагают в LiteLLM на часы/дни (бот обновляет ежечасно) → нужен override-мап
-  для только что вышедших ID.
-- Единицы LiteLLM — **$/токен**, не за миллион. Не делить на 1e6 повторно.
-
-## 2026-06-28 · ccusage v20 — это native Rust binary, и он покрывает Codex
-Уже НЕ только Claude и НЕ TypeScript: npm `ccusage` = тонкий Node-враппер, спавнит
-платформенный Rust-бинарь. `npx ccusage@latest claude daily --json` / `codex daily --json`.
-Значит свой Codex-парсер можно не держать (или держать только для кросс-чека).
-
-## 2026-06-28 · /tokenmaxxing (RU) — аудит математики
-Страница **сама не считает** — суммирует готовый `costUsd` из внешнего `agent-accounts-usage`.
-Найдено: (1) на машине **PRO** Codex-стоимость ×2.50 к каноническим ставкам (старые ставки
-или не-дедуп — разобрать по raw); (2) публичный reproduce-prompt **не упоминает дедуп** →
-сторонние получат ~2.7× инфляцию (дописать); (3) static-fallback устарел (−$2,800 против
-checkpoint). Файлы: `lib/token-maxing.ts`, `app/tokenmaxxing/page.tsx`,
-`app/tokenmaxxing/reproduce-prompt.ts`, `docs/2-product/special-situation/tokenmaxxing/methodology.md`.
+- Added per-model spend to the CLI payload.
+- Added per-day per-model spend so fixed-window model leaderboards do not count usage outside the target period.
+- Fable 5 launch leaderboard uses July 1-7, 2026 only.

@@ -95,7 +95,7 @@ export default async function Fable5BoardOgImage() {
             </div>
           </div>
           <div style={{ display: 'flex', fontSize: 24, fontWeight: 800, color: '#A1A1A6' }}>
-            tokmax.vibecoding.tech
+            tokmax.dev
           </div>
         </div>
 

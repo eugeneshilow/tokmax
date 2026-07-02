@@ -1,24 +1,24 @@
-# Fable5-summaries: дневник мышления модели (tokmax)
+# Fable5-summaries: model thinking journal (tokmax)
 
-Дата: 2026-07-02. Статус: живой канон папки. Свободная зона Fable 5: сюда
-агент тем же заходом сохраняет промежуточные размышления, выводы, спеки и
-результаты крупных прогонов по tokmax. Правило-дом — `AGENTS.md`
-основного проекта (`vibecoding-ru`) → Docs → Fable5-summaries; стиль —
+Date: 2026-07-02. Status: living canon of this folder. Fable 5 free zone: here
+the agent saves, in the same pass, intermediate reasoning, conclusions, specs,
+and results of large runs on tokmax. Home rule — `AGENTS.md` of the main
+project (`vibecoding-ru`) → Docs → Fable5-summaries; style —
 `vibecoding-ru/docs/style.md`.
 
-Это дневник, не канон: решения уезжают в [`../../decision-log.md`](../../decision-log.md)
-и доки слоёв, summary ссылается на них.
+This is a journal, not canon: decisions move to [`../../decision-log.md`](../../decision-log.md)
+and the layer docs; a summary links to them.
 
-## Карта
+## Map
 
-- [improvement-plan-2026-07-02.md](improvement-plan-2026-07-02.md) — единый
-  план прокачки tokmax по всем фронтам + событие Fable 5 (день 2/7);
-  итог мульти-агентного прогона (11 агентов: код, доки, WIP, рынок),
-  поправки критика вшиты.
-- [style-virality-2026-07-02.md](style-virality-2026-07-02.md) — спека
-  «Стиль × Вирусность»: арт-дирекшн «Money Terminal» (канон — decision-log
-  2026-07-02), вирусные поверхности ranked, share-петля; итог второго
-  прогона (8 агентов), поправки критика вшиты.
-- [mockups/](mockups/) — HTML-мокапы Money Terminal (1200×630 OG профиля,
-  OG события Fable 5, идеальный terminal-вывод CLI ~800px); открыть в
-  браузере — это и есть визуальная спека.
+- [improvement-plan-2026-07-02.md](improvement-plan-2026-07-02.md) — unified
+  plan for leveling up tokmax across all fronts + the Fable 5 event (day 2/7);
+  result of a multi-agent run (11 agents: code, docs, WIP, market), critic's
+  fixes baked in.
+- [style-virality-2026-07-02.md](style-virality-2026-07-02.md) — "Style ×
+  Virality" spec: "Money Terminal" art direction (canon — decision-log
+  2026-07-02), viral surfaces ranked, share loop; result of the second run
+  (8 agents), critic's fixes baked in.
+- [mockups/](mockups/) — Money Terminal HTML mockups (1200×630 profile OG,
+  Fable 5 event OG, ideal CLI terminal output ~800px); open in a browser —
+  that is the visual spec.

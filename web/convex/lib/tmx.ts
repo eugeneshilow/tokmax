@@ -336,7 +336,8 @@ export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export const TMX_PROFILE_BASE_URL = 'https://tokmax.vibecoding.tech'
+// Short brand domain (302-redirects to the serving host, path-preserving).
+export const TMX_PROFILE_BASE_URL = 'https://tokmax.dev'
 export const FABLE5_LEADERBOARD_START = '2026-07-01'
 export const FABLE5_LEADERBOARD_END = '2026-07-07'
 // The event runs on SAN FRANCISCO time (owner decision, 2026-07-02), but data

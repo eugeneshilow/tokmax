@@ -1,123 +1,125 @@
-# tokmax — Стиль × Вирусность: арт-дирекшн «Money Terminal» — 2026-07-02
+# tokmax — Style × Virality: "Money Terminal" art direction — 2026-07-02
 
-Дата: 2026-07-02. Статус: спека (датированный артефакт); арт-дирекшн
-канонизирован владельцем — запись в [`../../decision-log.md`](../../decision-log.md).
-Итог второго мульти-агентного прогона (5 аудиторов: дизайн-код, визуальная
-критика живых скриншотов, вирусные поверхности, эталоны рынка, share-петля;
-синтез; мокапы; критик — поправки вшиты). Тезис: каждая стилизованная
-поверхность существует, чтобы её скриншотили; каждая вирусная механика
-обязана выглядеть фирменно.
+Date: 2026-07-02. Status: spec (dated artifact); the art direction was
+canonized by the owner — entry in [`../../decision-log.md`](../../decision-log.md).
+Result of the second multi-agent run (5 auditors: design code, visual critique
+of live screenshots, viral surfaces, market references, share loop; synthesis;
+mockups; critic — fixes baked in). Thesis: every styled surface exists to be
+screenshotted; every viral mechanic must look on-brand.
 
-## 1. Вердикт
+## 1. Verdict
 
-Два сильнейших актива — зелёный PROFIT-блок («+$8,349 · 21.9×», единственный
-не-шаблонный элемент, 9/10) и профильный OG с гигантским оранжевым числом —
-**не подключены к моментам распространения**: терминальный вывод (пик
-дофамина, его реально скриншотят) выглядит как apt-get (3/10); event-борд
-404; борд и лендинг шарятся пустой карточкой (OG нет); борд светит сырыми
-hostname. Стиль живёт в копипасте className: 9 серых, 6 зелёных, мёртвый
-CSS-слой, системный mono — лицо терминального бренда рендерится по-разному
-на каждой ОС.
+The two strongest assets — the green PROFIT block ("+$8,349 · 21.9×", the only
+non-template element, 9/10) and the profile OG with the giant orange number —
+**are not wired to the moments of distribution**: the terminal output (the
+dopamine peak, the thing people actually screenshot) looks like apt-get
+(3/10); the event board is a 404; the board and the landing page share with an
+empty card (no OG); the board exposes raw hostnames. The style lives in
+copy-pasted className: 9 grays, 6 greens, a dead CSS layer, system mono — the
+face of a terminal brand renders differently on every OS.
 
-## 2. Арт-дирекшн: «Money Terminal»
+## 2. Art direction: "Money Terminal"
 
-**Метафора**: каждый share-артефакт — фейковый скриншот терминала:
-traffic-light точки, строка `$ npx tokmax`, внутри гигантское оранжевое
-число. Аудитория уже добровольно постит терминалы (культура ccusage) — мы
-делаем «то, что они и так постят», но неотличимо-фирменно. CLI = сайт = OG,
+**Metaphor**: every share artifact is a fake terminal screenshot:
+traffic-light dots, a `$ npx tokmax` line, a giant orange number inside. The
+audience already posts terminals voluntarily (ccusage culture) — we make "what
+they already post anyway", but unmistakably on-brand. CLI = site = OG,
 pixel-for-pixel.
 
-**Палитра** (закрепить в `@theme`, снести мёртвый Apple-блок
+**Palette** (pin in `@theme`, remove the dead Apple block
 `globals.css:84-138`):
 
 ```text
-ink     #070707   фон            surface #111111
-paper   #F5F5F7   светлые data-секции
-burn    #FF7A1A   деньги и бренд — только это
-profit  #18D86B   строго CLI/профит (не борды)
-codex   #3861FB   только Codex в чартах
-линии   #242428 / #D2D2D7 · текст ровно 3 серых: #D2D2D7 / #A1A1A6 / #6E6E73
+ink     #070707   background     surface #111111
+paper   #F5F5F7   light data sections
+burn    #FF7A1A   money and brand — this only
+profit  #18D86B   strictly CLI/profit (not boards)
+codex   #3861FB   Codex in charts only
+lines   #242428 / #D2D2D7 · text: exactly 3 grays: #D2D2D7 / #A1A1A6 / #6E6E73
 ```
 
-**Типографика**: Inter (text, tabular-nums везде) + JetBrains Mono 400/700
-через next/font (+ mono-woff в OG-рендерер, иначе карточки останутся
-небрендовыми). Один h1-ramp 42/60/76, eyebrow mono 11px / tracking 0.08em,
-display leading 0.92 (убить 0.85 — клиппинг `$`).
+**Typography**: Inter (text, tabular-nums everywhere) + JetBrains Mono 400/700
+via next/font (+ a mono woff in the OG renderer, otherwise the cards stay
+off-brand). One h1 ramp 42/60/76, eyebrow mono 11px / tracking 0.08em,
+display leading 0.92 (kill 0.85 — it clips `$`).
 
-**Фирменный приём для ленты**: оранжевый edge-glow по периметру тёмной
-карточки (иначе тонет в dark-mode ленте) + flame-tier глиф у числа (накал
-растёт со спендом). Силуэт постоянный, как у monkeytype result screen.
+**Signature feed device**: an orange edge glow around the perimeter of the
+dark card (otherwise it drowns in a dark-mode feed) + a flame-tier glyph next
+to the number (the heat grows with spend). The silhouette stays constant, like
+monkeytype's result screen.
 
-**Почему бьёт**: viberank — generic dark SaaS без экономического нарратива.
-Наш лейн: Bloomberg-дисциплина «оранжевые цифры на чёрном» + `21.9×` как
-эмоциональный герой — история «я обыграл свою подписку».
+**Why it hits**: viberank is generic dark SaaS with no economic narrative. Our
+lane: Bloomberg discipline of "orange numbers on black" + `21.9×` as the
+emotional hero — the story of "I beat my subscription".
 
-**Отвергнуто**: «receipt/invoice» — заезжен Receiptify, второй визуальный
-язык; оставлен как разовый event-skin. «Burn meter» — 🔥 generic AI-twitter,
-не несёт профит-сюжет; остался только глиф.
+**Rejected**: "receipt/invoice" — worn out by Receiptify, a second visual
+language; kept as a one-off event skin. "Burn meter" — 🔥 is generic
+AI-twitter and carries no profit story; only the glyph survives.
 
-**Мокапы** (визуальная спека, открыть в браузере): [mockups/og-profile.html](mockups/og-profile.html)
+**Mockups** (visual spec, open in a browser): [mockups/og-profile.html](mockups/og-profile.html)
 (1200×630), [mockups/og-event.html](mockups/og-event.html) (1200×630),
 [mockups/terminal-card.html](mockups/terminal-card.html) (~800px).
-Владелец утвердил terminal-card дословно: «выглядит ОХУЕННО».
+The owner approved the terminal-card verbatim: "looks F*CKING AWESOME"
+(«выглядит ОХУЕННО», in Russian).
 
-## 3. Вирусные поверхности (ranked)
+## 3. Viral surfaces (ranked)
 
-Контекст X-2026: ссылки в постах душатся (−30–50% reach) → **primary =
-нативный PNG в посте, ссылка первым реплаем**; OG — второй эшелон. Профили
-`noindex` → карточки = единственный канал discovery.
+X-2026 context: links in posts are throttled (−30–50% reach) → **primary =
+a native PNG in the post, link in the first reply**; OG is the second tier.
+Profiles are `noindex` → cards = the only discovery channel.
 
-| # | Поверхность | Что делать | ROI | Effort | Когда |
+| # | Surface | What to do | ROI | Effort | When |
 |---|---|---|---|---|---|
-| 1 | OG fable-5 + /leaderboard + / | Параметризовать `[nick]/opengraph-image.tsx`: топ-3, медали, total, days left, **empty-state** | max | S | сегодня |
-| 2 | Terminal receipt (CLI) | Box-рамка, оранжевый `$X`, зелёный `+$Y · ×`, `🏆 #N` (rank в publish response — `web/convex/http.ts:366`), paste-ready tweet + intent; share-строка — в 0.9.11 сегодня, box-receipt — 0.9.12 | high | M | неделя |
-| 3 | Share intents на профиле | `Share on X` + «Copy my stats» вместо пассивного «↓ screenshot this» | high | XS | неделя |
-| 4 | PROFIT-блок | URL в нижнюю кромку блока (страница + OG) — crop-proof атрибуция | mid | XS | неделя |
-| 5 | Event countdown | «FABLE 5 · ends July 7 · Xd left» на landing/board/профилях; сейчас urgency = 0 | high | S | неделя |
-| 6 | Board rows | Медали fable-5 (`fable-5/page.tsx:92`), hostname → чип «💻×2» (`leaderboard/page.tsx:227`) + hash на стороне CLI при submit | mid | S | неделя |
-| 7 | Wrapped card | Финалка ивента: total + rank + peak day; поля в `lib/tmx-profile-live.ts:56-59`; публиковать утром 8-го | high | M | 8 июля |
-| 8 | `/[nick]/card.png` | 16:9 PNG-endpoint + «copy image» под screenshot-first механику | high | M | later |
-| 9 | GitHub badge SVG | `/badge/<nick>.svg` — вечные бэклинки из README | mid | S | later |
-| 10 | OG-полировка профиля | Убрать дубль домена, 9.25B вместо 10 цифр, ник 44px + аватар | mid | S | later |
+| 1 | OG fable-5 + /leaderboard + / | Parameterize `[nick]/opengraph-image.tsx`: top 3, medals, total, days left, **empty state** | max | S | today |
+| 2 | Terminal receipt (CLI) | Box frame, orange `$X`, green `+$Y · ×`, `🏆 #N` (rank in publish response — `web/convex/http.ts:366`), paste-ready tweet + intent; share line — in 0.9.11 today, box receipt — 0.9.12 | high | M | week |
+| 3 | Share intents on the profile | `Share on X` + "Copy my stats" instead of the passive "↓ screenshot this" | high | XS | week |
+| 4 | PROFIT block | URL on the bottom edge of the block (page + OG) — crop-proof attribution | mid | XS | week |
+| 5 | Event countdown | "FABLE 5 · ends July 7 · Xd left" on landing/board/profiles; urgency is currently 0 | high | S | week |
+| 6 | Board rows | Fable-5 medals (`fable-5/page.tsx:92`), hostname → a "💻×2" chip (`leaderboard/page.tsx:227`) + a CLI-side hash at submit | mid | S | week |
+| 7 | Wrapped card | Event finale: total + rank + peak day; fields in `lib/tmx-profile-live.ts:56-59`; publish on the morning of the 8th | high | M | July 8 |
+| 8 | `/[nick]/card.png` | 16:9 PNG endpoint + "copy image" for the screenshot-first mechanic | high | M | later |
+| 9 | GitHub badge SVG | `/badge/<nick>.svg` — permanent backlinks from READMEs | mid | S | later |
+| 10 | Profile OG polish | Remove the duplicated domain, 9.25B instead of 10 digits, 44px nickname + avatar | mid | S | later |
 
-Плюс в event-неделю: живое число в hero лендинга (сейчас в первом экране
-ноль цифр — acquisition-поверхность недели), одна `$ npx tokmax [Copy]`
-вместо трёх повторов, фикс двойной точности (`$8,749 + $8,748.65` в одной
-ячейке читается как баг), typo `tokenmax` (`[nick]/page.tsx:649`), решение
-по цветовой семантике бордов (зелёные entry-кнопки vs «green = только
-profit» — перекрасить или узаконить как event-skin, не оставлять
-противоречие), свернуть 9 period-пиллов до July · All-time (остальные —
-dead-ends «No one on the board»).
+Also during event week: a live number in the landing hero (right now the first
+screen has zero digits — the acquisition surface of the week), one
+`$ npx tokmax [Copy]` instead of three repeats, fix the double precision
+(`$8,749 + $8,748.65` in one cell reads as a bug), the `tokenmax` typo
+(`[nick]/page.tsx:649`), a decision on the boards' color semantics (green
+entry buttons vs "green = profit only" — recolor or legitimize as an event
+skin, don't leave the contradiction), collapse the 9 period pills to
+July · All-time (the rest are "No one on the board" dead ends).
 
-## 4. Share-петля — топ-5 фиксов
+## 4. Share loop — top 5 fixes
 
-1. **Задеплоить WIP** — борд 404, старые публикации без `dailyModelSpend`
-   не считаются → пост «re-run `npx tokmax`».
-2. **Share-момент в терминале** — после `Done! Your page:`
-   (`cli/bin/tokmax.mjs:826`): готовый твит + intent; multi-machine блок
-   (`:834-845`) вниз.
-3. **Профиль как share-консоль** — intent-кнопка в actions row
-   (`[nick]/page.tsx:425-435`), copy-on-click на hero и shareUrl-чипе:
-   6 ручных действий → 1 клик.
-4. **Wow-число до вопросов** — reorder `main()` (`tokmax.mjs:963-986`):
-   scan → `You burned $X` за ~10с → identity/publish; дедуп вопроса о
-   периоде (`:422` vs `:653`).
-5. **Countdown-баннер + fable-5 OG** — холодному визитёру причина
-   действовать сегодня.
+1. **Deploy the WIP** — the board is a 404, old publishes without
+   `dailyModelSpend` don't count → post "re-run `npx tokmax`".
+2. **Share moment in the terminal** — after `Done! Your page:`
+   (`cli/bin/tokmax.mjs:826`): a ready tweet + intent; move the multi-machine
+   block (`:834-845`) down.
+3. **Profile as a share console** — an intent button in the actions row
+   (`[nick]/page.tsx:425-435`), copy-on-click on the hero and the shareUrl
+   chip: 6 manual actions → 1 click.
+4. **Wow number before questions** — reorder `main()` (`tokmax.mjs:963-986`):
+   scan → `You burned $X` within ~10s → identity/publish; dedup the period
+   question (`:422` vs `:653`).
+5. **Countdown banner + fable-5 OG** — gives a cold visitor a reason to act
+   today.
 
-## 5. Порядок работ
+## 5. Order of work
 
-Этап 0 (ship WIP Codex) — первый, как в
-[improvement-plan-2026-07-02.md](improvement-plan-2026-07-02.md) §5; далее:
-до 7 июля — только то, что умножает шары в окне (§3 «сегодня/неделя» +
-share-петля); утром 8-го — wrapped; после ивента — стиль-фундамент: палитра
-в `@theme` + снос ~330 мёртвых строк CSS, 6 UI-примитивов
-(Badge/Pill/Btn/Eyebrow/SectionHeader/DataTable), JetBrains Mono, один
-type-ramp и контейнер, общий header/wordmark (сейчас лого рендерится тремя
-способами, с мобилы нет пути назад), семантика цветов, правило радиусов
-«data sharp, controls rounded-lg, pills full»; затем card.png, badge SVG,
-диета профиля (30 daily-строк → stacked chart, ~4700px → ~2500px).
+Stage 0 (ship the Codex WIP) comes first, as in
+[improvement-plan-2026-07-02.md](improvement-plan-2026-07-02.md) §5; then:
+until July 7 — only what multiplies shares within the window (§3 "today/week"
++ the share loop); on the morning of the 8th — wrapped; after the event — the
+style foundation: the palette in `@theme` + removal of ~330 dead CSS lines,
+6 UI primitives (Badge/Pill/Btn/Eyebrow/SectionHeader/DataTable), JetBrains
+Mono, one type ramp and container, a shared header/wordmark (the logo
+currently renders three different ways, and mobile has no way back), color
+semantics, the radius rule "data sharp, controls rounded-lg, pills full";
+then card.png, badge SVG, the profile diet (30 daily rows → stacked chart,
+~4700px → ~2500px).
 
-Логика: системный рефакторинг стиля сознательно после ивента, но обязателен
-— иначе каждый новый вирусный артефакт форкает дрейфующий копипаст вместо
-единого бренда.
+The logic: the systemic style refactor is deliberately after the event, but
+mandatory — otherwise every new viral artifact forks drifting copy-paste
+instead of a single brand.

@@ -70,12 +70,12 @@ export default async function LandingPage() {
                 Leaderboard
               </Link>
               <Link
-                href="https://x.com/shilovtech"
+                href="https://x.com/eugeneshilow"
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 px-4 text-white transition-colors hover:bg-white/10"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                @shilovtech
+                @eugeneshilow
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
@@ -95,7 +95,7 @@ export default async function LandingPage() {
                 <p className="max-w-md text-[14px] font-semibold leading-6 text-[#A1A1A6]">
                   Reads your local Codex + Claude Code logs, computes the API-equivalent{' '}
                   <span className="text-[#FF7A1A]">$</span> locally, and publishes your page at{' '}
-                  <span className="text-white">tokmax.vibecoding.tech/&lt;nick&gt;</span>. Only
+                  <span className="text-white">tokmax.dev/&lt;nick&gt;</span>. Only
                   aggregate numbers leave your machine.
                 </p>
                 <PromptCopyBox prompt={SELF_SERVE_ONELINER} />

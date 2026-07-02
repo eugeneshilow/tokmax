@@ -1,15 +1,13 @@
-# 2 — Продукт (сам tokmax)
+# Product
 
-Дом для: **как устроена тула** — что и как она считает и показывает.
+tokmax has two main surfaces:
 
-- **CLI** (`cli/`, npm-пакет `tokmax`): `npx tokmax` → онбординг (ник + как считать),
-  адаптеры логов Codex (`~/.codex/sessions`) и Claude Code (`~/.claude*/projects`),
-  дедуп по `message.id`, превью по той же формуле, что и сервер.
-- **Методология $** — отдельный канон: [methodology/](methodology/README.md). Кратко: токены
-  считаем как ccusage (дедуп), цены из LiteLLM (maintained), формула наша (дисконт cache-read),
-  Convex НЕ пересчитывает. Лог косяков/находок — [methodology/findings-log.md](methodology/findings-log.md).
-- **Web/лидерборд** (`web/`, Next + Convex): публичная страница профиля
-  `tokmax.vibecoding.tech/<nick>`, event-sourcing (data_raw → projector → data_cooked).
-- **Данные**: схема в `web/convex/schema.ts` (source of truth).
+- `cli/`: the npm package. It scans local Codex and Claude Code logs, aggregates tokens, computes API-equivalent cost, and publishes the payload.
+- `web/`: the Next.js and Convex app. It receives publishes, projects profiles, and renders public pages plus leaderboards.
 
-Этот слой — про продукт; деплой/безопасность/домены — в [4-operations](../4-operations/README.md).
+Product principles:
+
+- Keep the CLI dependency-light and transparent.
+- Keep user-facing copy English-only.
+- Preserve the privacy boundary: no prompts, code, raw logs, tool output, or API keys are transmitted.
+- Store enough per-day and per-model data to support period and model-specific leaderboards.

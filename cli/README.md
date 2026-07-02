@@ -12,7 +12,7 @@ npx tokmax
 ```
 
 It scans your logs, shows your number in the terminal, and publishes your page at
-**tokmax.vibecoding.tech/your-handle**. Screenshot it, drop it in a chat, climb
+**tokmax.dev/your-handle**. Screenshot it, drop it in a chat, climb
 the leaderboard.
 
 ## Why people run it
@@ -20,7 +20,7 @@ the leaderboard.
 - **A real number.** Not "I use it a lot" — an actual dollar figure at API rates,
   computed locally with [LiteLLM](https://github.com/BerriAI/litellm) prices and
   [ccusage](https://github.com/ryoppippi/ccusage) counting.
-- **A page you can flex.** `tokmax.vibecoding.tech/<you>` with your totals, your
+- **A page you can flex.** `tokmax.dev/<you>` with your totals, your
   daily burn in dollars, and your rank.
 - **Every machine, one total.** Run it on your laptop and your server — sign in
   once with X and they merge into a single combined number automatically.
