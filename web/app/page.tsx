@@ -1,7 +1,7 @@
 import { TerminalCard, TerminalPrompt } from '@/components/terminal-card'
-import { fable5ChipLabel } from '@/lib/fable5'
+import { fable5ChipLabel, fable5Countdown } from '@/lib/fable5'
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
-import { loadTmxLeaderboard } from '@/lib/tmx-profile-live'
+import { loadTmxFable5Leaderboard, loadTmxLeaderboard } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from './prompt-copy-box'
 import { ArrowUpRight, Flame, Sparkles, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -31,9 +31,35 @@ export const metadata: Metadata = {
 export default async function LandingPage() {
   const rows = await loadTmxLeaderboard(100)
   const boardTotal = rows.reduce((sum, row) => sum + row.costUsd, 0)
+  const eventRows = await loadTmxFable5Leaderboard(100)
+  const eventTotal = eventRows.reduce((sum, row) => sum + row.fable5CostUsd, 0)
+  const eventOver = fable5Countdown().over
 
   return (
     <div className="min-h-screen bg-[#070707] text-white [font-variant-numeric:tabular-nums]">
+      {/* Launch-week event strip — the one loud event surface on tokmax pages
+          (the event nests inside tokmax, never the other way around). */}
+      <Link
+        href="/fable-5"
+        className="block border-b border-[#FF7A1A]/40 bg-[#150B03] transition-colors hover:bg-[#1F1004]"
+      >
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 font-mono text-[12px] font-bold md:px-6">
+          <span className="font-black uppercase tracking-[0.08em] text-[#FF7A1A]">
+            ⚡ {fable5ChipLabel()}
+          </span>
+          {eventTotal > 0 ? (
+            <span className="text-[#D2D2D7]">
+              {formatUsd(eventTotal)} burned on the launch board
+              {eventRows.length > 1 ? ` · ${eventRows.length} devs` : ''}
+            </span>
+          ) : null}
+          <span className="ml-auto inline-flex items-center gap-1 text-[#FFC79A]">
+            {eventOver ? 'final results' : 'join the board'}
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </Link>
+
       <section className="border-b border-[#242428]">
         <div className="mx-auto grid max-w-[1280px] gap-10 px-4 py-12 md:px-6 md:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(420px,520px)] lg:gap-14">
           <div className="min-w-0">
@@ -55,13 +81,6 @@ export default async function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3 text-[14px] font-bold">
-              <Link
-                href="/leaderboard/fable-5"
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A] bg-[#FF7A1A]/12 px-4 font-mono text-[13px] font-black uppercase tracking-[0.06em] text-[#FFC79A] transition-colors hover:bg-[#FF7A1A]/20"
-              >
-                <Sparkles className="h-4 w-4" />
-                {fable5ChipLabel()}
-              </Link>
               <Link
                 href="#leaderboard"
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
@@ -120,7 +139,7 @@ export default async function LandingPage() {
               API-equivalent · Codex + Claude Code
             </p>
             <Link
-              href="/leaderboard/fable-5"
+              href="/fable-5"
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#FF7A1A]/60 px-3 text-[13px] font-bold text-[#FF7A1A] transition-colors hover:bg-[#FF7A1A]/10"
             >
               <Sparkles className="h-4 w-4" />

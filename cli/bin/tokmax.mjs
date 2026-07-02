@@ -199,6 +199,35 @@ function dateInFable5LeaderboardWindow(date) {
   return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_DATA_END;
 }
 
+// Stack Math — the launch week's second job: decide whether stacking one more
+// subscription pays for itself. Marginal price of one more Claude Max 20×:
+const MARGINAL_MAX_USD_PER_MO = 200;
+const FABLE5_EVENT_TZ = 'America/Los_Angeles';
+
+/** Extrapolate the window pace (day counter runs on San Francisco time, matching the site). */
+function fable5StackMath(windowBurnUsd) {
+  if (!(windowBurnUsd > 0)) return null;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: FABLE5_EVENT_TZ }).format(new Date());
+  if (today < FABLE5_LEADERBOARD_START) return null;
+  const over = today > FABLE5_LEADERBOARD_END;
+  const day = Math.min(
+    7,
+    Math.max(
+      1,
+      Math.round(
+        (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${FABLE5_LEADERBOARD_START}T00:00:00Z`)) /
+          86400000,
+      ) + 1,
+    ),
+  );
+  const dailyRate = windowBurnUsd / (over ? 7 : day);
+  return {
+    weeklyRateUsd: dailyRate * 7,
+    monthlyRateUsd: dailyRate * 30,
+    secondSubMultiple: (dailyRate * 30) / MARGINAL_MAX_USD_PER_MO,
+  };
+}
+
 async function readPackageVersion() {
   try {
     const pkg = JSON.parse(
@@ -727,6 +756,15 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     console.log(
       `Fable 5 launch board (${FABLE5_LEADERBOARD_START} → ${FABLE5_LEADERBOARD_END}): $${fmtUsd(fable5Usd)} · ${fmtInt(fable5Tokens)} tokens`,
     );
+    // Stack Math — the event's second job: should you stack another sub?
+    // Pace understates real demand when you're capped; that caveat prints
+    // WITH the number, never silently baked into it. Decision aid, not advice.
+    const stack = fable5StackMath(fable5Usd);
+    if (stack) {
+      console.log(
+        `⚖️  Stack math: ~$${fmtUsd(stack.weeklyRateUsd)}/wk pace → a 2nd Max ($${MARGINAL_MAX_USD_PER_MO}/mo) pays back ~${stack.secondSubMultiple.toFixed(1)}× if you're capped → ${PAGE_BASE}/fable-5`,
+      );
+    }
   }
   console.log(ATTRIBUTION);
 
@@ -847,7 +885,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
           : '') +
         '.',
       ...(fable5ShareUsd > 0
-        ? [`Fable 5 launch week: $${fmtUsd(fable5ShareUsd)} → ${PAGE_BASE}/leaderboard/fable-5`]
+        ? [`Fable 5 launch week: $${fmtUsd(fable5ShareUsd)} → ${PAGE_BASE}/fable-5`]
         : []),
       'See yours: npx tokmax',
       pageUrl,

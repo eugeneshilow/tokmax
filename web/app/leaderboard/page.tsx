@@ -164,7 +164,7 @@ export default async function TmxLeaderboardPage({
               {SELF_SERVE_ONELINER}
             </span>
             <Link
-              href="/leaderboard/fable-5"
+              href="/fable-5"
               className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A] bg-[#FF7A1A]/12 px-4 font-mono text-[12px] font-black uppercase tracking-[0.06em] text-[#FFC79A] transition-colors hover:bg-[#FF7A1A]/20"
             >
               <Sparkles className="h-4 w-4" />

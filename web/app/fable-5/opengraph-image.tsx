@@ -213,7 +213,7 @@ export default async function Fable5BoardOgImage() {
             $ npx tokmax — 30 seconds to enter
           </div>
           <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, color: '#A1A1A6' }}>
-            API-equivalent $ · July 1-7, 2026 only
+            Is one Max enough? The board is the math.
           </div>
         </div>
       </div>
