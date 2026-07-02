@@ -1,6 +1,6 @@
 {
   "name": "tokmax",
-  "version": "0.9.15",
+  "version": "0.9.16",
   "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokmax leaderboard (tokmax.dev). Prices: LiteLLM, counting: ccusage. Aggregates only — never your prompts, files, or keys.",
   "type": "module",
   "bin": {

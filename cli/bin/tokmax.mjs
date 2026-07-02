@@ -154,7 +154,8 @@ Run:
   npx tokmax login      Sign in with X — your nick = your @handle (multi-machine)
   npx tokmax logout     sign out on this machine (logout --all = every machine)
   npx tokmax delete     permanently delete your page + account (sign in with X first)
-  npx tokmax publish    non-interactive publish using the saved token (used by the daily job)
+  npx tokmax update     refresh your page with current numbers right now
+  npx tokmax publish    same as update, non-interactive (used by the daily job)
   npx tokmax daily on   set up the daily auto-update
   npx tokmax daily off  remove the daily auto-update
   npx tokmax daily status   show the daily auto-update state
@@ -1018,7 +1019,9 @@ async function main() {
   if (rawArgs[0] === 'logout') return logoutCmd(rawArgs, resolveApiBase(rawArgs));
   if (rawArgs[0] === 'delete') return deleteCmd(rawArgs, resolveApiBase(rawArgs));
   if (rawArgs[0] === 'daily') return dailyCmd(rawArgs);
-  if (rawArgs[0] === 'publish') return publishCmd(rawArgs.slice(1));
+  // `update` = the human-facing alias of `publish`: refresh the page with
+  // current numbers right now (publish stays — the daily job uses it).
+  if (rawArgs[0] === 'publish' || rawArgs[0] === 'update') return publishCmd(rawArgs.slice(1));
 
   const opts = parseArgs(rawArgs);
 

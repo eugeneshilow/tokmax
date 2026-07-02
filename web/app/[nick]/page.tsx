@@ -1,4 +1,5 @@
 import { AnsiMoney } from '@/components/ansi-money'
+import { NpxChip } from '@/components/npx-chip'
 import { TerminalCard } from '@/components/terminal-card'
 import { MARGINAL_MAX_USD_PER_MO, fable5Countdown, fable5StackMath } from '@/lib/fable5'
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
@@ -449,9 +450,12 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                       ) : null}
                     </div>
                   </div>
-                  <div className="border-t border-[#242428] px-4 py-2">
-                    <span className="text-[#6E6E73]">your page → </span>
-                    <span className="font-bold text-[#FF7A1A]">{shareUrl}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#242428] px-4 py-2">
+                    <span>
+                      <span className="text-[#6E6E73]">your page → </span>
+                      <span className="font-bold text-[#FF7A1A]">{shareUrl}</span>
+                    </span>
+                    <NpxChip />
                   </div>
                 </div>
 
@@ -505,11 +509,14 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                         </p>
                       </div>
                     </div>
-                    <div className="border-t border-[#242428] px-4 py-2">
-                      <span className="text-[#6E6E73]">board → </span>
-                      <Link href="/fable-5" className="font-bold text-[#FF7A1A] hover:underline">
-                        tokmax.dev/fable-5
-                      </Link>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#242428] px-4 py-2">
+                      <span>
+                        <span className="text-[#6E6E73]">board → </span>
+                        <Link href="/fable-5" className="font-bold text-[#FF7A1A] hover:underline">
+                          tokmax.dev/fable-5
+                        </Link>
+                      </span>
+                      <NpxChip />
                     </div>
                   </div>
 
@@ -648,6 +655,12 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                 Your call, any time — run it in your terminal:
               </p>
               <div className="mt-3 grid gap-2 font-mono text-[13px]">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <code className="rounded border border-[#18D86B]/50 bg-[#18D86B]/10 px-2 py-1 font-bold text-[#18D86B]">
+                    npx tokmax update
+                  </code>
+                  <span className="text-[#8A8A8F]">refresh these numbers right now</span>
+                </div>
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <code className="rounded bg-white/10 px-2 py-1 font-bold text-white">
                     npx tokmax daily off
