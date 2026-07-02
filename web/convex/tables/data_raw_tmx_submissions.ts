@@ -18,12 +18,6 @@ import { projectTmxProfile, projectTmxProfileForAccount } from './data_cooked_tm
 const NICK_MAX = 30
 
 /**
- * Единая транзакция приёма публикации (зовётся из http.ts после крипто-хешей):
- * валидация ника → сервер — тупой стор: валидирует и сохраняет присланный
- * клиентом $ (CLI: LiteLLM + наша формула), сам ничего не пересчитывает →
- * анти-абьюз гейты → capability-token → иммутабельный append → проекция
- * снапшота. Всё детерминировано; крипто (хеши IP/секрета, генерация секрета)
- * сделано выше, в httpAction.
  */
 export const publish = internalMutation({
   args: vTmxPublishArgs,
@@ -31,16 +25,11 @@ export const publish = internalMutation({
   handler: async (ctx, args) => {
     const isAccount = args.account_x_user_id !== null
 
-    // 1. Ник.
-    // Account-путь (Sign in with X): identity верифицирована → ник = handle
-    // аккаунта, формат/блок-лист не применяем (handle авторитетен от X).
-    // Legacy-путь: формат + модерация + P2 anti-downgrade (ник, занятый
-    // верифицированным аккаунтом, нельзя писать анонимно).
     let nick: string
     if (isAccount) {
       nick = normalizeNick(args.nick)
       if (nick.length === 0) {
-        return { ok: false as const, reason: 'nick_invalid' as const, message: 'Пустой handle.' }
+        return { ok: false as const, reason: 'nick_invalid' as const, message: 'Empty handle.' }
       }
     } else {
       const nickCheck = validateNick(args.nick)
@@ -49,8 +38,6 @@ export const publish = internalMutation({
       }
       nick = nickCheck.nick
 
-      // P2 legacy-downgrade: ник, закреплённый за верифицированным X-аккаунтом,
-      // нельзя обновлять анонимной (capability-secret) публикацией.
       const ownedByAccount = await ctx.db
         .query('biz_tmx_accounts')
         .withIndex('by_handle', (q) => q.eq('handle', nick))
@@ -59,53 +46,60 @@ export const publish = internalMutation({
         return {
           ok: false as const,
           reason: 'nick_taken' as const,
-          message: 'Этот ник закреплён за верифицированным X-аккаунтом — войди через «Sign in with X».',
+          message: 'This nick belongs to a verified X account. Sign in with X.',
         }
       }
     }
 
-    // 2. $ — авторитетно от клиента (CLI считает по LiteLLM + наша формула).
-    // Сервер только хранит. sources/totals приходят готовыми (incl. costUsd).
     const sources = args.sources
     const totals = args.totals
+    const modelSpend = args.modelSpend ?? []
+    const dailyModelSpend = args.dailyModelSpend ?? []
     if (totals.totalTokens <= 0) {
       return {
         ok: false as const,
         reason: 'empty_usage' as const,
-        message: 'В логах не нашлось токенов для подсчёта.',
+        message: 'No token usage was found in the logs.',
       }
     }
     const daily = buildDaily(args.daily)
-    // P1 (security audit): period-доски (month/year) ранжируют СУММУ daily[].costUsd,
-    // а не totals.costUsd. Значит потолки и suspicious обязаны смотреть и на сумму
-    // дней — иначе totals.costUsd=14999 (не suspicious, виден на all-time) + раздутые
-    // daily дают миллионы за месяц/год на period-доске. daily приходит от клиента.
     const dailySum = daily.reduce((acc, d) => acc + d.costUsd, 0)
+    const modelSpendSum = modelSpend.reduce((acc, m) => acc + m.costUsd, 0)
+    const dailyModelSpendSum = dailyModelSpend.reduce(
+      (acc, day) => acc + day.models.reduce((dayAcc, m) => dayAcc + m.costUsd, 0),
+      0
+    )
 
-    // HARDENING #6: value-cap = ОТКАЗ, не только флаг. Сумма выше жёсткого
-    // потолка неправдоподобна (абьюз/мусор) → отклоняем. Серую зону
-    // (> soft cap, <= hard cap) пропускаем, но метим suspicious (прячем из
-    // leaderboard). Бьём по БОЛЬШЕМУ из total и суммы дней.
-    if (totals.costUsd > TMX_VALUE_HARD_CAP_USD || dailySum > TMX_VALUE_HARD_CAP_USD) {
+    if (
+      totals.costUsd > TMX_VALUE_HARD_CAP_USD ||
+      dailySum > TMX_VALUE_HARD_CAP_USD ||
+      modelSpendSum > TMX_VALUE_HARD_CAP_USD ||
+      dailyModelSpendSum > TMX_VALUE_HARD_CAP_USD
+    ) {
       return {
         ok: false as const,
         reason: 'value_too_high' as const,
-        message: 'Сумма неправдоподобна.',
+        message: 'The reported amount is not plausible.',
       }
     }
-    // suspicious, если total ИЛИ сумма дней пробивают мягкий потолок, либо если
-    // сумма дней заметно (>2%) расходится с присланным total — дневные $ обязаны
-    // сходиться с общим $, иначе это отравление period-доски.
     const dailyDiverges = totals.costUsd > 0 && dailySum > totals.costUsd * 1.02 + 1
+    const modelSpendDiverges =
+      modelSpend.length > 0 && totals.costUsd > 0 && Math.abs(modelSpendSum - totals.costUsd) > totals.costUsd * 0.02 + 1
+    const dailyModelSpendDiverges =
+      dailyModelSpend.length > 0 &&
+      totals.costUsd > 0 &&
+      Math.abs(dailyModelSpendSum - totals.costUsd) > totals.costUsd * 0.02 + 1
     const suspicious =
-      totals.costUsd > TMX_VALUE_CAP_USD || dailySum > TMX_VALUE_CAP_USD || dailyDiverges
+      totals.costUsd > TMX_VALUE_CAP_USD ||
+      dailySum > TMX_VALUE_CAP_USD ||
+      modelSpendSum > TMX_VALUE_CAP_USD ||
+      dailyModelSpendSum > TMX_VALUE_CAP_USD ||
+      dailyDiverges ||
+      modelSpendDiverges ||
+      dailyModelSpendDiverges
 
     const now = Date.now()
 
-    // HARDENING #2: глобальный circuit-breaker. Жёсткий дневной потолок числа
-    // публикаций по всей платформе — ограничивает storage/cost независимо от IP
-    // (распределённая атака с тысяч IP обходит per-IP лимит, но не этот). Читаем
-    // дневной счётчик ДО вставки; инкремент — только после успешной вставки.
     const day = new Date(now).toISOString().slice(0, 10)
     const counter = await ctx.db
       .query('ops_tmx_counters')
@@ -115,13 +109,10 @@ export const publish = internalMutation({
       return {
         ok: false as const,
         reason: 'rate_limited' as const,
-        message: 'Дневной лимит платформы исчерпан.',
+        message: 'The platform daily publish limit has been reached.',
       }
     }
 
-    // HARDENING #4: per-nick min-interval. Самая свежая публикация ника читается
-    // через compound-индекс [nick, insertedAt] (take 1) — отбиваем спам-флуд
-    // одним ником без чтения всей истории.
     const lastForNick = await ctx.db
       .query('data_raw_tmx_submissions')
       .withIndex('by_nick_inserted', (q) => q.eq('nick', nick))
@@ -131,13 +122,10 @@ export const publish = internalMutation({
       return {
         ok: false as const,
         reason: 'rate_limited' as const,
-        message: 'Слишком часто для этого ника. Подожди немного.',
+        message: 'Too frequent for this nick. Try again shortly.',
       }
     }
 
-    // HARDENING #3: bounded rate-limit по ipHash. Compound-индекс
-    // [ipHash, insertedAt] + .gte(windowStart).take(MAX+1) читает максимум MAX+1
-    // строк, а не всю историю IP через .collect() (неогр. read = self-DoS).
     const windowStart = now - TMX_RATE_LIMIT_WINDOW_MS
     const recent = await ctx.db
       .query('data_raw_tmx_submissions')
@@ -149,7 +137,7 @@ export const publish = internalMutation({
       return {
         ok: false as const,
         reason: 'rate_limited' as const,
-        message: 'Слишком много публикаций подряд. Попробуй чуть позже.',
+        message: 'Too many publishes in a row. Try again later.',
       }
     }
 
@@ -167,19 +155,12 @@ export const publish = internalMutation({
       return {
         ok: false as const,
         reason: 'rate_limited' as const,
-        message: 'Дневной лимит публикаций с этого адреса исчерпан.',
+        message: 'The daily publish limit for this address has been reached.',
       }
     }
 
-    // 3. Capability-token (ТОЛЬКО legacy-путь): первая публикация ника создаёт
-    // claim; апдейт требует секрет. Владение по секрету, не по личности.
-    // Account-путь пропускает это — владение доказано X identity (token_hash).
     let created = false
     if (isAccount) {
-      // identity-путь: claim не нужен. created=false → http не вернёт secret.
-      // #1 reclaim: верифицированный X-владелец отжимает свой хендл — сносим
-      // stale anon-claim, если этот ник раньше был занят legacy-публикацией
-      // (анонимный секрет инвалидируется; cooked-профиль перезапишется ниже).
       const staleClaim = await ctx.db
         .query('ops_tmx_claims')
         .withIndex('by_nick', (q) => q.eq('nick', nick))
@@ -201,7 +182,6 @@ export const publish = internalMutation({
         })
         created = true
       } else if (args.providedSecretHash !== claim.secretHash) {
-        // Ник занят другим ключом → предложить свободный вариант.
         let suggestion = `${nick}-2`.slice(0, NICK_MAX)
         for (let i = 2; i <= 12; i += 1) {
           const candidate = `${nick}-${i}`.slice(0, NICK_MAX)
@@ -217,7 +197,7 @@ export const publish = internalMutation({
         return {
           ok: false as const,
           reason: 'nick_taken' as const,
-          message: 'Этот ник уже занят другим ключом.',
+          message: 'This nick is already claimed by another key.',
           suggestion,
         }
       } else {
@@ -228,7 +208,6 @@ export const publish = internalMutation({
       }
     }
 
-    // 4. Иммутабельный append (write-once факт).
     await ctx.db.insert('data_raw_tmx_submissions', {
       nick,
       ipHash: args.ipHash,
@@ -238,6 +217,8 @@ export const publish = internalMutation({
       firstDay: args.firstDay,
       lastDay: args.lastDay,
       models: args.models,
+      ...(modelSpend.length ? { modelSpend } : {}),
+      ...(dailyModelSpend.length ? { dailyModelSpend } : {}),
       sources,
       daily,
       totals,
@@ -248,17 +229,12 @@ export const publish = internalMutation({
       insertedAt: now,
     })
 
-    // HARDENING #2: инкремент глобального счётчика — ТОЛЬКО после успешной
-    // вставки (отказы потолок не съедают).
     if (counter) {
       await ctx.db.patch(counter._id, { count: counter.count + 1 })
     } else {
       await ctx.db.insert('ops_tmx_counters', { day, count: 1 })
     }
 
-    // 5. Проекция снапшота профиля.
-    // Account-путь: группируем все машины аккаунта по immutable x_user_id (2-я
-    // машина с тем же X-логином авто-сливается без --key). Legacy: по нику.
     if (isAccount && args.account_x_user_id) {
       await projectTmxProfileForAccount(ctx, args.account_x_user_id, nick)
     } else {

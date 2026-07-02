@@ -25,7 +25,14 @@ import { fileURLToPath } from 'node:url';
 import { scanClaudeCode } from '../src/adapters/claude-code.mjs';
 import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
-import { aggregateSources, aggregateDailyCost, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
+import {
+  aggregateSources,
+  aggregateDailyCost,
+  aggregateModelSpend,
+  aggregateDailyModelSpend,
+  buildRateMap,
+  ATTRIBUTION,
+} from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
 import {
   loadSecret,
@@ -45,6 +52,8 @@ const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
 const REPO_URL = 'https://github.com/eugeneshilow/tokmax';
 const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
+const FABLE5_LEADERBOARD_START = '2026-07-01';
+const FABLE5_LEADERBOARD_END = '2026-07-07';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Open a URL in the default browser (best-effort; silent if unavailable).
@@ -166,6 +175,25 @@ function fmtUsd(n) {
 
 function fmtInt(n) {
   return n.toLocaleString('en-US');
+}
+
+function isFable5ModelId(model) {
+  const id = String(model || '')
+    .toLowerCase()
+    .replace(/[\s_:.]+/g, '-');
+  for (const prefix of ['claude-fable-5', 'fable-5']) {
+    if (
+      id === prefix ||
+      id.startsWith(`${prefix}-`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dateInFable5LeaderboardWindow(date) {
+  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_END;
 }
 
 async function readPackageVersion() {
@@ -664,6 +692,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   const rateMap = await buildRateMap();
   computeP.update(85);
   const { sources: costSources, totals } = aggregateSources(agg.models, rateMap);
+  const modelSpend = aggregateModelSpend(agg.models, rateMap);
+  const dailyModelSpend = aggregateDailyModelSpend(agg.dailyModels, rateMap);
   const usd = totals.costUsd;
   // Per-day costUsd (same formula as the period total) → attach to each
   // token-only daily[] entry so the server can rank by calendar period
@@ -684,10 +714,19 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   }
   console.log(`Total tokens: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
+  const fable5Launch = dailyModelSpend
+    .filter((day) => dateInFable5LeaderboardWindow(day.date))
+    .flatMap((day) => day.models)
+    .filter((m) => isFable5ModelId(m.model));
+  if (fable5Launch.length) {
+    const fable5Usd = fable5Launch.reduce((sum, m) => sum + m.costUsd, 0);
+    const fable5Tokens = fable5Launch.reduce((sum, m) => sum + m.totalTokens, 0);
+    console.log(
+      `Fable 5 launch board (${FABLE5_LEADERBOARD_START} → ${FABLE5_LEADERBOARD_END}): $${fmtUsd(fable5Usd)} · ${fmtInt(fable5Tokens)} tokens`,
+    );
+  }
   console.log(ATTRIBUTION);
 
-  // Subscription: AUTO-DETECT from local plan config — no asking (owner: «спрашивать
-  // это залупа»). We read only the plan TIER locally (e.g. Claude Max 20× / ChatGPT Pro)
   // and map it to retail $/mo; tokens are never read out or sent. `--sub <usd>` overrides.
   if (!opts.subscriptionUsd) {
     const det = await detectSubscription();
@@ -722,6 +761,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     lastDay: agg.lastDay,
     machineLabel: opts.machine,
     models: agg.models,
+    modelSpend,
+    dailyModelSpend,
     sources: costSources,
     totals,
     daily,
@@ -790,7 +831,6 @@ async function runPipeline(opts, cliVersion, { interactive }) {
       console.log('  Opening it in your browser…\n');
     }
 
-    // Пошаговая инструкция: добавить ещё один источник (комп/сервак) — дашборд суммирует все.
     console.log('  ── Add another computer / server (your dashboard sums them all) ──');
     if (opts.bearer) {
       console.log('  On the other machine, just run one command:');

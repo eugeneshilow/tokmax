@@ -1,19 +1,13 @@
-# 3 — Привлечение (go-to-market)
+# Marketing
 
-Дом для: **лонч, вирусность, каналы, сбор фидбэка.** Всё международное привлечение
-tokmax — здесь (отдельно от РУ-каналов основного проекта).
+Launch materials live in `launch/`.
 
-## launch/ — лонч-кит (готов, ждёт зелёных gates)
-- [strategy.md](launch/strategy.md) — стратегия лонча (позиционирование, каналы,
-  launch-readiness gates, защита РУ-трека).
-- [product-hunt.md](launch/product-hunt.md) — PH: название, таглайн, описание, maker-коммент, шот-лист галереи.
-- [show-hn.md](launch/show-hn.md) — Show HN: заголовок + url + body (первым комментом).
-- [reddit.md](launch/reddit.md) — r/ClaudeAI · r/ChatGPTCoding · r/LocalLLaMA (каждый под нормы саба).
-- [twitter-thread.md](launch/twitter-thread.md) — build-in-public тред + варианты хука.
-- [runbook.md](launch/runbook.md) — лонч-день: тайминг, клики, pre-flight с gates как блокером.
-- `assets/` — GIF/скрины (шот-лист в product-hunt.md).
+Keep all public copy English-only. Public links should point to the product, the GitHub repository, or the owner's X profile. Do not include regional brand references.
 
-Артефакты площадок — по-английски; стратегия и runbook — по-русски.
-Копирайт прошёл draft → polish → consistency-ревью (числа / ratio / privacy / anti-overclaim выверены).
+Launch assets:
 
-⚠️ **Курок не жать до закрытия gates** (prod Convex + 3 P1 безопасности) — см. strategy.md.
+- Product Hunt listing copy.
+- Show HN submission copy.
+- Reddit variants.
+- X thread draft.
+- Runbook.

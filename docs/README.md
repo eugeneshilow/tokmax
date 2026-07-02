@@ -1,18 +1,14 @@
-# tokmax — docs
+# tokmax Docs
 
-Карта документации продукта **tokmax** (международная тула; отдельный репозиторий,
-не РУ-монорепо). Структура зеркалит основной проект `vibecoding-ru` (4 слоя бизнеса),
-чтобы навигация была одинаковой во всех проектах.
+This directory holds product, launch, and operations notes for tokmax.
 
-| Слой | Что внутри | Старт |
-| --- | --- | --- |
-| Куда идём | стратегия продукта, позиционирование, ведж, игра Б, метрики | [1-strategy](1-strategy/README.md) |
-| Сам продукт | CLI, web/лидерборд, методология $, схема данных, страница | [2-product](2-product/README.md) |
-| Привлечение | лонч (PH/HN/Reddit/Twitter), вирусность, каналы, фидбэк | [3-marketing](3-marketing/README.md) |
-| Чтобы работало | деплой, безопасность, домены/DNS, монетизация | [4-operations](4-operations/README.md) |
+Structure:
 
-- Решения и отказы — [decision-log.md](decision-log.md) (append-only, новое сверху).
-- Стиль доков — канон основного проекта (`vibecoding-ru/docs/style.md`), не дублируем.
+| Area | Contents |
+| --- | --- |
+| [1-strategy](1-strategy/README.md) | Product positioning and launch goals |
+| [2-product](2-product/README.md) | CLI, web app, data model, and methodology |
+| [3-marketing](3-marketing/README.md) | Launch copy and distribution assets |
+| [4-operations](4-operations/README.md) | Deployment, security, and operational notes |
 
-Каркас слоёв постоянен (номерные префиксы = порядок чтения), меняется содержимое.
-У каждого слоя — `README.md` как executive-гайд и карта вниз.
+Canonical public links should stay limited to the product, the GitHub repository, and the owner's X profile.

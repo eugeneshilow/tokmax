@@ -1,7 +1,7 @@
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
 import { loadTmxLeaderboard } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from './prompt-copy-box'
-import { ArrowUpRight, Flame, Terminal, Trophy } from 'lucide-react'
+import { ArrowUpRight, Flame, Sparkles, Terminal, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -60,7 +60,14 @@ export default async function LandingPage() {
                 Leaderboard
               </Link>
               <Link
-                href="https://t.me/shilovtech"
+                href="/leaderboard/fable-5"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#18D86B]/50 px-4 text-[#18D86B] transition-colors hover:bg-[#18D86B]/10"
+              >
+                <Sparkles className="h-4 w-4" />
+                Fable 5
+              </Link>
+              <Link
+                href="https://x.com/shilovtech"
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 px-4 text-white transition-colors hover:bg-white/10"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -108,6 +115,13 @@ export default async function LandingPage() {
             <p className="font-mono text-[12px] font-bold text-[#6E6E73]">
               API-equivalent · Codex + Claude Code
             </p>
+            <Link
+              href="/leaderboard/fable-5"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#18D86B]/50 px-3 text-[13px] font-bold text-[#18D86B] transition-colors hover:bg-[#18D86B]/10"
+            >
+              <Sparkles className="h-4 w-4" />
+              Fable 5 board
+            </Link>
           </div>
 
           {rows.length === 0 ? (

@@ -2,9 +2,6 @@ import { internalMutation } from './_generated/server'
 import { v } from 'convex/values'
 
 /**
- * Admin-only cleanup: полностью удалить ник с лидерборда (cooked-профиль + все
- * raw-сабмишены). Для чистки тестовых записей перед запуском / модерации.
- * Вызов: `npx convex run admin_tmx:purgeNick '{"nick":"..."}'`.
  */
 export const purgeNick = internalMutation({
   args: { nick: v.string() },
@@ -33,7 +30,6 @@ export const purgeNick = internalMutation({
       submissions++
     }
 
-    // Legacy capability claim (ник, занятый по секрету).
     const cs = await ctx.db
       .query('ops_tmx_claims')
       .withIndex('by_nick', (q) => q.eq('nick', nick))
@@ -43,8 +39,6 @@ export const purgeNick = internalMutation({
       claims++
     }
 
-    // Полный снос X-идентичности: аккаунт(ы) с handle == nick + все их per-machine
-    // токены. После этого `npx tokmax login` создаёт аккаунт заново с нуля.
     const accs = await ctx.db
       .query('biz_tmx_accounts')
       .withIndex('by_handle', (q) => q.eq('handle', nick))

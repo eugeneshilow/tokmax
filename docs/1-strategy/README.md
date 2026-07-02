@@ -1,11 +1,17 @@
-# 1 — Стратегия (куда идём)
+# Strategy
 
-Дом для: **продуктовая стратегия** — позиционирование, ведж, целевая аудитория,
-«игра Б» (продукт-лед, паспорт-агностик), метрики успеха, отложенные решения.
+tokmax is a public API-equivalent usage meter for Codex and Claude Code.
 
-Ведж в одну строку: `npx tokmax` показывает, сколько твой usage Codex + Claude Code
-стоил бы по ценам API — вирусный token-флекс + лидерборд.
+Positioning:
 
-Сейчас GTM/лонч-стратегия живёт в
-[3-marketing/launch/strategy.md](../3-marketing/launch/strategy.md) (это go-to-market).
-По мере роста сюда оседают высокоуровневые продуктовые заметки (видение, развилки).
+- One command reads local usage logs and publishes aggregate token spend.
+- The user gets a shareable profile and a leaderboard rank.
+- Privacy is core: only aggregate numbers leave the machine.
+- The product should stand on its own, without regional branding.
+
+Launch goals:
+
+- Make the value obvious in one screenshot.
+- Keep trust messaging visible everywhere.
+- Drive GitHub inspection and X sharing.
+- Avoid claims that the leaderboard is fraud-proof; it is self-reported usage with abuse controls.

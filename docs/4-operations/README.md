@@ -1,14 +1,23 @@
-# 4 — Операции (чтобы работало)
+# Operations
 
-Дом для: **инфра и эксплуатация.**
+Operational notes for tokmax.
 
-- **Деплой**: Convex (сейчас dev `chatty-boar-479`; прод — gate перед лончем),
-  Vercel (проект `tokenmax`, фреймворк next через `vercel.json`).
-- **Безопасность** публичного анонимного write-endpoint (`/api/tmx/publish`):
-  kill-switch, rate-limit по ipHash, value-cap, глобальный дневной потолок,
-  анти-poisoning. 3 P1 из аудита — закрыть до публичного лонча.
-- **Домены/DNS**: `.tech` через Porkbun (`~/.porkbun-api`), `.ru` через reg.ru.
-  Canonical `tokmax.vibecoding.tech`; редиректы `tokmax.ru`, `tokenmax.ru`,
-  `vibecoding.tech` apex.
-- **Монетизация** (когда дойдём): Merchant-of-Record (Paddle / Lemon Squeezy / Polar)
-  + зарубежное юрлицо. Сейчас тула бесплатная.
+Deployment:
+
+- Web app: Next.js.
+- Backend: Convex.
+- CLI: npm package.
+
+Security-sensitive areas:
+
+- Public publish endpoint.
+- Rate limits and value caps.
+- Capability token handling.
+- X sign-in token handling.
+- Leaderboard poisoning controls.
+
+Operational defaults:
+
+- Keep payload sizes bounded.
+- Keep publish failure messages concise and English-only.
+- Keep production links and public contact links intentional.

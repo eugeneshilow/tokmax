@@ -1,49 +1,11 @@
-# tokmax — журнал решений
+# Decision Log
 
-Append-only, **новое сверху**. Полный канон формата — в основном проекте
-(`vibecoding-ru/docs/decision-log.md`). Сюда — решения и осознанные отказы по tokmax.
+Append short product and engineering decisions here.
 
-## 2026-06-28 · Подсчёт $: ccusage (счёт) + LiteLLM (цены) + НАША формула; Convex не считает
-Движок «API-equivalent $»: токены — методологией ccusage (дедуп `message.id+requestId`,
-max-wins); цены — из LiteLLM (maintained, не руками); формула — **наша** (правильный дисконт
-cache-read ~10×). **ccusage-$ напрямую НЕ берём** — он завышает Codex (cache-read по полной
-input-ставке, ~2.4× на cache-heavy). Convex ничего не пересчитывает — хранит/показывает
-клиентское число (⇒ верификация = отдельный, ещё открытый gate). Атрибуция: «prices: LiteLLM ·
-counting: ccusage». Канон — `docs/2-product/methodology/`, лог находок — `methodology/findings-log.md`.
+## 2026-07-01
 
-## 2026-06-28 · Методология мейнтейнится в ДВУХ местах — цифры обязаны биться
-`vibecoding.ru/tokenmaxxing` (RU-витрина) и `tokmax` (intl) делят один движок счёта/цен → на
-одних и тех же логах числа должны совпадать. Это текущий **cross-reference-check** корректности;
-разошлись — баг в одной из реализаций общего канона.
-
-## 2026-06-28 · РУ/EN — маховик, не противостояние
-Принцип, снявший вечный «vs»: один движок (экспертиза + аудитория, языко-независимы) → два
-выхлопа (РУ-контент, EN-тулзы), кросс-кормят. **Закон:** каждая работа отбрасывает топливо
-другому фронту; одна история — два языка. **Гейт:** synergy-чеклист — «как ОНО кормит второй
-фронт?», не можешь ответить → переделай. tokmax — эталон: воронка→РУ-трафик, build-in-public→
-РУ-контент, методология→РУ-бенчмарк, охват→соцпруф, РУ-фидбэк→лучше тула. Полная версия —
-память агента `ru-en-split-resolution`.
-
-## 2026-06-28 · Международный лонч — продукт-лед, не бренд-лед
-tokmax выходит на запад как **артефакт** (PH / Show HN / Reddit / Twitter), а не как
-стартап/личный бренд. Паспорт, кредлы, VC не нужны (это «игра Б»). Личный бренд остаётся
-в РУ. **Почему:** язык-нейтральная тула едет на пользе, а не на лице фаундера; западные
-discovery-площадки не спрашивают, кто ты и откуда; международный успех бустит ру-кред.
-
-## 2026-06-28 · docs зеркалят основной проект (4 слоя)
-Структура `docs/` (1-strategy … 4-operations) повторяет vibecoding-ru — одинаковая
-навигация во всех проектах. Лонч живёт в `3-marketing/launch/` (go-to-market = маркетинг),
-без отдельного top-level `launch/`.
-
-## 2026-06-27 · Canonical-домен = tokmax.vibecoding.tech (international)
-Служёный канон — нейтральный `.tech`, не `.ru` (чтобы не отпугивать западных девов
-оптикой санкций). `tokmax.ru` / `www` / `tokenmax.ru` → редиректы. `vibecoding.tech` apex
-→ 307 на tokmax.vibecoding.tech (пока).
-
-## 2026-06-27 · npm-команда = tokmax (geo-нейтральная)
-Гео живёт в домене, не в команде. «-ru» пугает и западных (санкции), и русских
-(бан-паранойя). Все будущие npm-пакеты — тем же принципом.
-
-## 2026-06-27 · Изоляция от основного сайта
-Публичный анонимный write-endpoint вынесен в отдельные Convex/Vercel/репо — не делит
-инфру (concurrency/billing) с vibecoding.ru. Причина из security-аудита.
+- `AGENTS.md` is local-only and ignored by git.
+- Public contact links should stay limited to X and GitHub.
+- Public contact links should use the owner's X profile and the GitHub repository.
+- Fable 5 launch leaderboard is fixed to July 1-7, 2026.
+- The CLI sends per-day per-model spend so fixed-window model boards do not count earlier usage.
