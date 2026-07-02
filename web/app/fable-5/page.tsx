@@ -83,6 +83,15 @@ export default async function Fable5WeekPage() {
             <span className="inline-flex h-10 items-center rounded-lg border border-[#FF7A1A]/50 px-4 font-mono text-[13px] font-bold text-[#FF7A1A]">
               {SELF_SERVE_ONELINER}
             </span>
+            <a
+              href="https://github.com/eugeneshilow/tokmax"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 px-4 font-mono text-[13px] font-bold text-[#D2D2D7] transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <ArrowUpRight className="h-4 w-4" />
+              github.com/eugeneshilow/tokmax
+            </a>
           </div>
         </div>
       </section>
@@ -306,7 +315,15 @@ export default async function Fable5WeekPage() {
             </ol>
             <p className="mt-5 inline-flex items-center gap-2 text-[12px] font-semibold text-[#6E6E73]">
               <Terminal className="h-3.5 w-3.5 text-[#FF7A1A]" /> Prices: LiteLLM · Counting:
-              ccusage · open source
+              ccusage ·{' '}
+              <a
+                href="https://github.com/eugeneshilow/tokmax"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-[#D2D2D7] underline decoration-dotted underline-offset-4 hover:text-[#FF7A1A]"
+              >
+                open source
+              </a>
             </p>
           </div>
           <PromptCopyBox prompt={SELF_SERVE_ONELINER} />
