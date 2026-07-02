@@ -1,7 +1,7 @@
 import { formatCompactNumber, formatUsd, formatUsdPrecise } from '@/lib/format'
 import { loadTmxLeaderboardByPeriod } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
-import { ArrowUpRight, Flame, Trophy } from 'lucide-react'
+import { ArrowUpRight, Flame, Sparkles, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -158,6 +158,15 @@ export default async function TmxLeaderboardPage({
 
           <div className="mt-7 inline-flex h-10 items-center rounded-lg border border-white/20 px-4 font-mono text-[13px] font-bold">
             {SELF_SERVE_ONELINER}
+          </div>
+          <div className="mt-3">
+            <Link
+              href="/leaderboard/fable-5"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#18D86B]/50 px-4 text-[14px] font-bold text-[#18D86B] transition-colors hover:bg-[#18D86B]/10"
+            >
+              <Sparkles className="h-4 w-4" />
+              Fable 5 board
+            </Link>
           </div>
         </div>
       </section>

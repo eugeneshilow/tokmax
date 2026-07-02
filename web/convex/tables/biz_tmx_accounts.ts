@@ -1,13 +1,7 @@
 import { v } from 'convex/values'
 import { internalMutation } from '../_generated/server'
 
-// "Sign in with X": верифицированный аккаунт (mutable display поверх
-// иммутабельного x_user_id). Все мутации internal — пишутся только из action
-// xAuth/http (после проверки подлинности X). X access-токены тут НЕ хранятся.
-// Account-токены живут в biz_tmx_account_tokens (по одному на машину) — резолв
-// токена и revoke см. там, а не здесь.
 
-/** Upsert аккаунта по immutable x_user_id; handle/name/avatar — refresh каждый логин. */
 export const upsertAccount = internalMutation({
   args: {
     x_user_id: v.string(),

@@ -3,7 +3,20 @@
 // only numbers, model id strings, and ISO timestamps.
 
 import { readdir } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+
+/**
+ * Anonymized, per-machine-stable label. Raw hostnames often contain the
+ * owner's real name (e.g. "Johns-MacBook-Pro.local") and machine labels are
+ * shown on the public board — so the default label must never leak them.
+ * Hash is stable per machine so multi-device merging keeps working.
+ */
+export function anonymousMachineLabel() {
+  const hash = createHash('sha256').update(os.hostname()).digest('hex').slice(0, 6);
+  return `machine-${hash}`;
+}
 
 /** Coerce any value into a finite, non-negative integer token count. */
 export function num(v) {

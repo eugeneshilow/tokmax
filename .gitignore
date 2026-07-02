@@ -6,3 +6,4 @@ node_modules
 .convex
 dist
 *.log
+AGENTS.md

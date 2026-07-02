@@ -3,6 +3,28 @@
 Append-only, **новое сверху**. Полный канон формата — в основном проекте
 (`vibecoding-ru/docs/decision-log.md`). Сюда — решения и осознанные отказы по tokmax.
 
+## 2026-07-02 · Fable-5 ship slice: window-гейт, анонимный machineLabel, share-момент
+Слайс WIP Codex (фича Fable 5 + cleanup кода) зашипован с фиксами поверх:
+(1) event-борд фильтрует по window-scoped `fable5Suspicious` (кап $7,500 на
+окно 1–7 июля), а не по all-time `suspicious` — иначе lifetime-киты >$15k
+невидимы на борде; (2) `machineLabel` по умолчанию = `machine-<sha256[:6]>`,
+сырой hostname больше не покидает машину (privacy-клейм стал правдой);
+(3) `GLOBAL_DAILY_CAP` 5000→20000 на окно запуска; (4) дивергенс-гейт
+`dailyModelSpend` сравнивается с одинаково усечённым `dailySum`, не с all-time
+totals (убирает авто-suspicious тяжёлых юзеров); (5) усечение per-day массивов
+держит свежайшие дни, не старейшие; (6) `isFable5ModelId` ловит
+Bedrock/Vertex/router-префиксы; (7) share-строка + `x.com/intent` в CLI после
+publish; (8) OG-image борда fable-5 c empty-state и countdown. RU-комменты
+HARDENING в слайсе заменены английскими (cleanup Codex): полные обоснования —
+в git history до `55923be` и в `docs/2-product/methodology/findings-log.md`.
+Отвергли: мерж WIP одним блобом (docs-gutting отложен решением владельца).
+
+## 2026-07-01 · Решения сессии Codex (перенос из его EN-rewrite, канон — здесь)
+(1) `AGENTS.md` tokmax — local-only, в git не живёт (`.gitignore`);
+(2) публичные контакты — только X владельца и GitHub-репо; (3) лидерборд
+запуска Fable 5 зафиксирован на 1–7 июля 2026; (4) CLI шлёт per-day per-model
+spend, чтобы fixed-window борды не считали старое использование.
+
 ## 2026-07-02 · Арт-дирекшн «Money Terminal» — канон визуального языка
 Каждый share-артефакт — фейковый скриншот терминала (traffic-light точки,
 `$ npx tokmax`, box-drawing, гигантское оранжевое число) + оранжевый edge-glow

@@ -15,7 +15,6 @@
 // SAFETY INVARIANT: only numeric token aggregates per model + dates leave this
 // machine. Never prompt text, file contents, API keys, or raw log lines.
 
-import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { spawn } from 'node:child_process';
@@ -25,8 +24,16 @@ import { fileURLToPath } from 'node:url';
 import { scanClaudeCode } from '../src/adapters/claude-code.mjs';
 import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
-import { aggregateSources, aggregateDailyCost, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
+import {
+  aggregateSources,
+  aggregateDailyCost,
+  aggregateModelSpend,
+  aggregateDailyModelSpend,
+  buildRateMap,
+  ATTRIBUTION,
+} from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
+import { anonymousMachineLabel } from '../src/util.mjs';
 import {
   loadSecret,
   saveSecret,
@@ -45,6 +52,8 @@ const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
 const REPO_URL = 'https://github.com/eugeneshilow/tokmax';
 const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
+const FABLE5_LEADERBOARD_START = '2026-07-01';
+const FABLE5_LEADERBOARD_END = '2026-07-07';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Open a URL in the default browser (best-effort; silent if unavailable).
@@ -76,7 +85,7 @@ function parseArgs(argv) {
     since: null,
     key: null,
     api: DEFAULT_API,
-    machine: os.hostname(),
+    machine: anonymousMachineLabel(),
     sources: null, // null = both; { claude, codex }
     subscriptionUsd: null,
     dryRun: false,
@@ -151,7 +160,7 @@ Options:
   --since YYYY-MM-DD   count only from this day (default: whole history)
   --key <secret>       capability token to update an already-claimed nick
   --api <baseUrl>      API base URL (default: tokenmax deployment)
-  --machine <label>    machine label (default: hostname)
+  --machine <label>    machine label (default: anonymized machine-<hash>, never your raw hostname)
   --onboard            force the onboarding flow
   --dry-run            print the preview + request body, publish nothing
   --yes, -y            skip the confirmation prompt
@@ -166,6 +175,25 @@ function fmtUsd(n) {
 
 function fmtInt(n) {
   return n.toLocaleString('en-US');
+}
+
+function isFable5ModelId(model) {
+  const id = String(model || '')
+    .toLowerCase()
+    .replace(/[\s_:.]+/g, '-');
+  for (const prefix of ['claude-fable-5', 'fable-5']) {
+    if (
+      id === prefix ||
+      id.startsWith(`${prefix}-`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dateInFable5LeaderboardWindow(date) {
+  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_END;
 }
 
 async function readPackageVersion() {
@@ -664,6 +692,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   const rateMap = await buildRateMap();
   computeP.update(85);
   const { sources: costSources, totals } = aggregateSources(agg.models, rateMap);
+  const modelSpend = aggregateModelSpend(agg.models, rateMap);
+  const dailyModelSpend = aggregateDailyModelSpend(agg.dailyModels, rateMap);
   const usd = totals.costUsd;
   // Per-day costUsd (same formula as the period total) → attach to each
   // token-only daily[] entry so the server can rank by calendar period
@@ -684,10 +714,19 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   }
   console.log(`Total tokens: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
+  const fable5Launch = dailyModelSpend
+    .filter((day) => dateInFable5LeaderboardWindow(day.date))
+    .flatMap((day) => day.models)
+    .filter((m) => isFable5ModelId(m.model));
+  if (fable5Launch.length) {
+    const fable5Usd = fable5Launch.reduce((sum, m) => sum + m.costUsd, 0);
+    const fable5Tokens = fable5Launch.reduce((sum, m) => sum + m.totalTokens, 0);
+    console.log(
+      `Fable 5 launch board (${FABLE5_LEADERBOARD_START} → ${FABLE5_LEADERBOARD_END}): $${fmtUsd(fable5Usd)} · ${fmtInt(fable5Tokens)} tokens`,
+    );
+  }
   console.log(ATTRIBUTION);
 
-  // Subscription: AUTO-DETECT from local plan config — no asking (owner: «спрашивать
-  // это залупа»). We read only the plan TIER locally (e.g. Claude Max 20× / ChatGPT Pro)
   // and map it to retail $/mo; tokens are never read out or sent. `--sub <usd>` overrides.
   if (!opts.subscriptionUsd) {
     const det = await detectSubscription();
@@ -700,6 +739,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
 
   // PROFIT/× = ROLLING LAST 30 DAYS vs one month of the plan (matches the page). Stable
   // (no calendar month-start dip), apples-to-apples; no purchase date / historical guessing.
+  // Kept in scope: the post-publish share text reuses it.
+  let econ = null;
   if (opts.subscriptionUsd && daily.length) {
     const lastDate = daily[daily.length - 1].date;
     const windowStart = new Date(Date.parse(lastDate) - 29 * 86400000).toISOString().slice(0, 10);
@@ -707,6 +748,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
       .filter((d) => d.date >= windowStart)
       .reduce((s, d) => s + (d.costUsd || 0), 0);
     const ratio = opts.subscriptionUsd > 0 ? windowBurn / opts.subscriptionUsd : 0;
+    econ = { windowBurn, ratio, profit: windowBurn - opts.subscriptionUsd };
     console.log(
       `Last 30 days: $${fmtUsd(windowBurn)} of API value on your $${fmtUsd(opts.subscriptionUsd)}/mo plan → ${ratio.toFixed(1)}× (profit $${fmtUsd(windowBurn - opts.subscriptionUsd)})`,
     );
@@ -722,6 +764,8 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     lastDay: agg.lastDay,
     machineLabel: opts.machine,
     models: agg.models,
+    modelSpend,
+    dailyModelSpend,
     sources: costSources,
     totals,
     daily,
@@ -790,7 +834,27 @@ async function runPipeline(opts, cliVersion, { interactive }) {
       console.log('  Opening it in your browser…\n');
     }
 
-    // Пошаговая инструкция: добавить ещё один источник (комп/сервак) — дашборд суммирует все.
+    // Share moment: a paste-ready post with the numbers + a one-click X intent
+    // link. The paste/screenshot IS the viral loop — make it zero-effort.
+    const fable5ShareUsd = fable5Launch.reduce((sum, m) => sum + m.costUsd, 0);
+    const shareLines = [
+      `I burned $${fmtUsd(usd)} in AI tokens at API prices` +
+        (econ && econ.profit >= 0
+          ? ` — ${econ.ratio.toFixed(1)}× my $${fmtUsd(opts.subscriptionUsd)}/mo plan`
+          : '') +
+        '.',
+      ...(fable5ShareUsd > 0
+        ? [`Fable 5 launch week: $${fmtUsd(fable5ShareUsd)} → ${PAGE_BASE}/leaderboard/fable-5`]
+        : []),
+      'See yours: npx tokmax',
+      pageUrl,
+    ];
+    console.log('  ── Share it — paste-ready ──');
+    for (const line of shareLines) console.log(`  │ ${line}`);
+    console.log(
+      `  → post it: https://x.com/intent/post?text=${encodeURIComponent(shareLines.join('\n'))}\n`,
+    );
+
     console.log('  ── Add another computer / server (your dashboard sums them all) ──');
     if (opts.bearer) {
       console.log('  On the other machine, just run one command:');
