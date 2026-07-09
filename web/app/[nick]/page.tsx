@@ -6,6 +6,7 @@ import {
   loadTmxProfile,
   loadTmxLeaderboard,
   type TmxProfileDaily,
+  type TmxProfileModelSpend,
   type TmxProfileSource,
 } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
@@ -22,6 +23,7 @@ import {
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Fragment } from 'react'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -179,7 +181,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
     rowDays: 'days',
     rowCli: 'cli',
     dailyBurnTitle: 'Daily burn ($ at API prices)',
-    scoreboardTitle: 'Totals by source',
+    scoreboardTitle: 'Totals by source & model',
     buildEyebrow: 'build your own',
     counterTitleLine1: 'Your own counter —',
     counterTitleLine2: 'one command.',
@@ -495,9 +497,28 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                 </tr>
               </thead>
               <tbody className="text-[14px] font-semibold">
-                {profile.sources.map((source) => (
-                  <SourceRow key={source.source} source={source} />
-                ))}
+                {profile.sources.map((source) => {
+                  // Per-model split nests under its source row: one glance
+                  // answers "which model burned this" without a new section.
+                  // sources carry display names ("Claude Code"), modelSpend
+                  // carries tool slugs ("claude-code") — match on the slug.
+                  const sourceSlug = source.source.toLowerCase().replace(/\s+/g, '-')
+                  const models = (profile.modelSpend ?? [])
+                    .filter((m) => m.tool.toLowerCase() === sourceSlug)
+                    .sort((a, b) => b.costUsd - a.costUsd)
+                  return (
+                    <Fragment key={source.source}>
+                      <SourceRow source={source} />
+                      {models.map((m) => (
+                        <ModelRow
+                          key={`${m.tool}/${m.model}`}
+                          spend={m}
+                          totalCostUsd={profile.totals.costUsd}
+                        />
+                      ))}
+                    </Fragment>
+                  )
+                })}
                 <tr className="bg-[#1D1D1F] text-white">
                   <td className="px-4 py-4 font-black">Total</td>
                   <td className="px-4 py-4 text-right">{formatInteger(profile.totals.input)}</td>
@@ -663,6 +684,41 @@ function SectionHeader({
       </div>
       <p className="font-mono text-[12px] font-bold text-[#6E6E73]">{right}</p>
     </div>
+  )
+}
+
+function ModelRow({
+  spend,
+  totalCostUsd,
+}: {
+  spend: TmxProfileModelSpend
+  totalCostUsd: number
+}) {
+  const share = totalCostUsd > 0 ? (spend.costUsd / totalCostUsd) * 100 : 0
+  return (
+    <tr className="border-b border-[#ECECEF] bg-[#FAFAFB]">
+      <td className="px-4 py-2.5 pl-10 font-mono text-[12px] font-semibold text-[#6E6E73]">
+        {spend.model}
+      </td>
+      <td className="px-4 py-2.5 text-right text-[13px] text-[#6E6E73]">
+        {formatInteger(spend.input)}
+      </td>
+      <td className="px-4 py-2.5 text-right text-[13px] text-[#6E6E73]">
+        {formatInteger(spend.output)}
+      </td>
+      <td className="px-4 py-2.5 text-right text-[13px] text-[#6E6E73]">
+        {formatInteger(spend.cacheCreate + spend.cacheRead)}
+      </td>
+      <td className="px-4 py-2.5 text-right text-[13px] text-[#6E6E73]">
+        {formatInteger(spend.totalTokens)}
+      </td>
+      <td className="px-4 py-2.5 text-right text-[13px]">
+        {formatUsdPrecise(spend.costUsd)}{' '}
+        <span className="font-normal text-[#9A9AA0]">
+          · {share >= 1 ? `${Math.round(share)}%` : '<1%'}
+        </span>
+      </td>
+    </tr>
   )
 }
 
