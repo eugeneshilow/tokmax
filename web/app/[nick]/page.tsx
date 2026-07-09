@@ -1,13 +1,10 @@
 import { AnsiMoney } from '@/components/ansi-money'
 import { NpxChip } from '@/components/npx-chip'
 import { TerminalCard } from '@/components/terminal-card'
-import { MARGINAL_MAX_USD_PER_MO, fable5Countdown, fable5StackMath } from '@/lib/fable5'
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
 import {
-  FABLE5_LEADERBOARD_LABEL,
   loadTmxProfile,
   loadTmxLeaderboard,
-  loadTmxFable5Leaderboard,
   type TmxProfileDaily,
   type TmxProfileSource,
 } from '@/lib/tmx-profile-live'
@@ -158,14 +155,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   const board = await loadTmxLeaderboard(200)
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
-  const countdown = fable5Countdown()
-  const fable5Usd = profile.fable5LaunchCostUsd ?? 0
-  const stackMath = fable5StackMath(fable5Usd)
-
-  // Event rank: position on the Fable 5 window board (separate from all-time).
-  const eventBoard = fable5Usd > 0 ? await loadTmxFable5Leaderboard(200) : []
-  const eventRankIdx = eventBoard.findIndex((r) => r.nick === profile.nick)
-  const eventRank = eventRankIdx >= 0 ? eventRankIdx + 1 : null
 
   // One-click share: pre-filled post with the numbers. The paste/screenshot IS
   // the viral loop — the button must cost the visitor zero effort.
@@ -177,18 +166,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
     `https://${shareUrl}`,
   ].join('\n')
   const shareIntentHref = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}`
-
-  // Event card gets its own one-click post — the two cards share separately.
-  const eventShareText = stackMath
-    ? [
-        `I burned ${formatUsd(fable5Usd)} on Fable 5 in launch week${eventRank ? ` — #${eventRank} on the board` : ''}.`,
-        `Pace says a 2nd Max pays back ${stackMath.secondSubMultiple.toFixed(1)}×. Is one even enough?`,
-        'https://tokmax.dev/fable-5',
-      ].join('\n')
-    : null
-  const eventShareIntentHref = eventShareText
-    ? `https://x.com/intent/post?text=${encodeURIComponent(eventShareText)}`
-    : null
 
   // English-only copy.
   const t = {
@@ -464,79 +441,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                 </p>
               </div>
             </TerminalCard>
-
-            {/* Card 2 — Fable 5 Week: strictly the event window. Its own
-                terminal, its own share link — shareable on its own. */}
-            {fable5Usd > 0 && stackMath ? (
-              <TerminalCard title={`${profile.nick} — fable-5 week`} glow className="mt-6">
-                <div className="p-5 font-mono text-[13px] leading-relaxed">
-                  <div className="overflow-hidden rounded-lg border border-[#2E2E33]">
-                    <div className="flex items-center justify-between gap-3 border-b border-[#242428] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.08em]">
-                      <span className="font-black text-[#FF7A1A]">
-                        fable 5 week · {FABLE5_LEADERBOARD_LABEL}
-                      </span>
-                      <span className="shrink-0 text-[#A1A1A6]">
-                        {countdown.over
-                          ? 'final results'
-                          : `day ${countdown.day}/7 · ${countdown.daysLeft} day${countdown.daysLeft === 1 ? '' : 's'} left`}
-                      </span>
-                    </div>
-                    <div className="px-4 py-4">
-                      <AnsiMoney value={formatUsd(fable5Usd)} />
-                      <p className="mt-3 text-[#A1A1A6]">
-                        on Fable 5 this week ·{' '}
-                        <span className="font-bold text-white">
-                          {formatInteger(profile.fable5LaunchTokens ?? 0)}
-                        </span>{' '}
-                        tokens
-                      </p>
-                      <div className="mt-3 space-y-1">
-                        {eventRank ? (
-                          <p className="text-white">
-                            🏆 <span className="font-bold">#{eventRank}</span> on the launch board
-                          </p>
-                        ) : null}
-                        <p className="text-[#D2D2D7]">
-                          ⚖️{' '}
-                          <span className="font-bold text-white">
-                            {formatUsd(stackMath.weeklyRateUsd)}/wk
-                          </span>{' '}
-                          pace · 2nd Max (${MARGINAL_MAX_USD_PER_MO}/mo) pays back{' '}
-                          <span className="font-bold text-[#18D86B]">
-                            {stackMath.secondSubMultiple.toFixed(1)}×
-                          </span>{' '}
-                          <span className="text-[#6E6E73]">if you&apos;re capped</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#242428] px-4 py-2">
-                      <span>
-                        <span className="text-[#6E6E73]">board → </span>
-                        <Link href="/fable-5" className="font-bold text-[#FF7A1A] hover:underline">
-                          tokmax.dev/fable-5
-                        </Link>
-                      </span>
-                      <NpxChip />
-                    </div>
-                  </div>
-
-                  {eventShareIntentHref ? (
-                    <p className="mt-3 text-[12px] text-[#6E6E73]">
-                      →{' '}
-                      <a
-                        href={eventShareIntentHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#FF7A1A] underline decoration-dotted underline-offset-4 hover:text-[#FF954A]"
-                      >
-                        post the week
-                      </a>{' '}
-                      — pre-filled with your numbers
-                    </p>
-                  ) : null}
-                </div>
-              </TerminalCard>
-            ) : null}
           </aside>
         </div>
       </section>

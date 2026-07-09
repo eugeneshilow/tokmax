@@ -52,11 +52,6 @@ const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.dev'; // short brand domain (redirects to the serving host)
 const REPO_URL = 'https://github.com/eugeneshilow/tokmax';
 const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax';
-const FABLE5_LEADERBOARD_START = '2026-07-01';
-const FABLE5_LEADERBOARD_END = '2026-07-07';
-// Event runs on San Francisco time; log dates are UTC strings, so the data
-// window includes UTC 2026-07-08 to cover July 7 in SF (matches the server).
-const FABLE5_LEADERBOARD_DATA_END = '2026-07-08';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Open a URL in the default browser (best-effort; silent if unavailable).
@@ -179,54 +174,6 @@ function fmtUsd(n) {
 
 function fmtInt(n) {
   return n.toLocaleString('en-US');
-}
-
-function isFable5ModelId(model) {
-  const id = String(model || '')
-    .toLowerCase()
-    .replace(/[\s_:.]+/g, '-');
-  for (const prefix of ['claude-fable-5', 'fable-5']) {
-    if (
-      id === prefix ||
-      id.startsWith(`${prefix}-`)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function dateInFable5LeaderboardWindow(date) {
-  return date >= FABLE5_LEADERBOARD_START && date <= FABLE5_LEADERBOARD_DATA_END;
-}
-
-// Stack Math — the launch week's second job: decide whether stacking one more
-// subscription pays for itself. Marginal price of one more Claude Max 20×:
-const MARGINAL_MAX_USD_PER_MO = 200;
-const FABLE5_EVENT_TZ = 'America/Los_Angeles';
-
-/** Extrapolate the window pace (day counter runs on San Francisco time, matching the site). */
-function fable5StackMath(windowBurnUsd) {
-  if (!(windowBurnUsd > 0)) return null;
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: FABLE5_EVENT_TZ }).format(new Date());
-  if (today < FABLE5_LEADERBOARD_START) return null;
-  const over = today > FABLE5_LEADERBOARD_END;
-  const day = Math.min(
-    7,
-    Math.max(
-      1,
-      Math.round(
-        (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${FABLE5_LEADERBOARD_START}T00:00:00Z`)) /
-          86400000,
-      ) + 1,
-    ),
-  );
-  const dailyRate = windowBurnUsd / (over ? 7 : day);
-  return {
-    weeklyRateUsd: dailyRate * 7,
-    monthlyRateUsd: dailyRate * 30,
-    secondSubMultiple: (dailyRate * 30) / MARGINAL_MAX_USD_PER_MO,
-  };
 }
 
 async function readPackageVersion() {
@@ -761,26 +708,6 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   }
   console.log(`Total tokens: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
-  const fable5Launch = dailyModelSpend
-    .filter((day) => dateInFable5LeaderboardWindow(day.date))
-    .flatMap((day) => day.models)
-    .filter((m) => isFable5ModelId(m.model));
-  if (fable5Launch.length) {
-    const fable5Usd = fable5Launch.reduce((sum, m) => sum + m.costUsd, 0);
-    const fable5Tokens = fable5Launch.reduce((sum, m) => sum + m.totalTokens, 0);
-    console.log(
-      `Fable 5 launch board (${FABLE5_LEADERBOARD_START} → ${FABLE5_LEADERBOARD_END}): $${fmtUsd(fable5Usd)} · ${fmtInt(fable5Tokens)} tokens`,
-    );
-    // Stack Math — the event's second job: should you stack another sub?
-    // Pace understates real demand when you're capped; that caveat prints
-    // WITH the number, never silently baked into it. Decision aid, not advice.
-    const stack = fable5StackMath(fable5Usd);
-    if (stack) {
-      console.log(
-        `⚖️  Stack math: ~$${fmtUsd(stack.weeklyRateUsd)}/wk pace → a 2nd Max ($${MARGINAL_MAX_USD_PER_MO}/mo) pays back ~${stack.secondSubMultiple.toFixed(1)}× if you're capped → ${PAGE_BASE}/fable-5`,
-      );
-    }
-  }
   console.log(ATTRIBUTION);
 
   // and map it to retail $/mo; tokens are never read out or sent. `--sub <usd>` overrides.
@@ -892,16 +819,12 @@ async function runPipeline(opts, cliVersion, { interactive }) {
 
     // Share moment: a paste-ready post with the numbers + a one-click X intent
     // link. The paste/screenshot IS the viral loop — make it zero-effort.
-    const fable5ShareUsd = fable5Launch.reduce((sum, m) => sum + m.costUsd, 0);
     const shareLines = [
       `I burned $${fmtUsd(usd)} in AI tokens at API prices` +
         (econ && econ.profit >= 0
           ? ` — ${econ.ratio.toFixed(1)}× my $${fmtUsd(opts.subscriptionUsd)}/mo plan`
           : '') +
         '.',
-      ...(fable5ShareUsd > 0
-        ? [`Fable 5 launch week: $${fmtUsd(fable5ShareUsd)} → ${PAGE_BASE}/fable-5`]
-        : []),
       'See yours: npx tokmax',
       pageUrl,
     ];

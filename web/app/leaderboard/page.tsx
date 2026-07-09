@@ -1,9 +1,8 @@
 import { TerminalCard } from '@/components/terminal-card'
-import { fable5ChipLabel } from '@/lib/fable5'
 import { formatCompactNumber, formatUsd, formatUsdPrecise } from '@/lib/format'
 import { loadTmxLeaderboardByPeriod } from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
-import { ArrowUpRight, Flame, Sparkles, Trophy } from 'lucide-react'
+import { ArrowUpRight, Flame, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -163,13 +162,6 @@ export default async function TmxLeaderboardPage({
             <span className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 font-mono text-[13px] font-bold">
               {SELF_SERVE_ONELINER}
             </span>
-            <Link
-              href="/fable-5"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A] bg-[#FF7A1A]/12 px-4 font-mono text-[12px] font-black uppercase tracking-[0.06em] text-[#FFC79A] transition-colors hover:bg-[#FF7A1A]/20"
-            >
-              <Sparkles className="h-4 w-4" />
-              {fable5ChipLabel()}
-            </Link>
           </div>
         </div>
       </section>

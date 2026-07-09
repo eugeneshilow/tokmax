@@ -53,10 +53,6 @@ export type TmxProfile = {
   totals: TmxProfileTotals
   costUsd: number
   totalTokens: number
-  fable5CostUsd: number
-  fable5Tokens: number
-  fable5LaunchCostUsd: number
-  fable5LaunchTokens: number
   submissionCount: number
   cliVersion: string
   suspicious: boolean
@@ -84,19 +80,6 @@ export type TmxPeriodLeaderboardRow = TmxLeaderboardRow & {
   periodCostUsd: number
 }
 
-export type TmxFable5LeaderboardRow = TmxLeaderboardRow & {
-  fable5CostUsd: number
-  fable5Tokens: number
-  fable5LaunchCostUsd: number
-  fable5LaunchTokens: number
-  allCostUsd: number
-  allTotalTokens: number
-}
-
-export const FABLE5_LEADERBOARD_START = '2026-07-01'
-export const FABLE5_LEADERBOARD_END = '2026-07-07'
-export const FABLE5_LEADERBOARD_LABEL = 'July 1-7, 2026'
-
 const getTmxProfileByNick = makeFunctionReference<'query', { nick: string }, TmxProfile | null>(
   'tables/data_cooked_tmx_profiles:getByNick'
 )
@@ -110,12 +93,6 @@ const listTmxLeaderboardByPeriod = makeFunctionReference<
   { period: string; limit?: number },
   TmxPeriodLeaderboardRow[]
 >('tables/data_cooked_tmx_profiles:listLeaderboardByPeriod')
-
-const listTmxFable5Leaderboard = makeFunctionReference<
-  'query',
-  { limit?: number },
-  TmxFable5LeaderboardRow[]
->('tables/data_cooked_tmx_profiles:listFable5Leaderboard')
 
 export async function loadTmxProfile(nick: string): Promise<TmxProfile | null> {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
@@ -162,19 +139,6 @@ export async function loadTmxLeaderboardByPeriod(
     )
   } catch (error) {
     console.warn('tmx period leaderboard unavailable', error)
-    return []
-  }
-}
-
-export async function loadTmxFable5Leaderboard(limit?: number): Promise<TmxFable5LeaderboardRow[]> {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
-  if (!convexUrl) return []
-
-  try {
-    const convex = new ConvexHttpClient(convexUrl)
-    return await convex.query(listTmxFable5Leaderboard, limit === undefined ? {} : { limit })
-  } catch (error) {
-    console.warn('tmx fable 5 leaderboard unavailable', error)
     return []
   }
 }
