@@ -2,6 +2,21 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-09 — Fable 5 Week is retired; tokmax base stays
+
+- Owner decision: the event went stale after July 7 — remove it instead of
+  freezing `/fable-5` into final results (supersedes the "freezes into final
+  results" line of 2026-07-02). Removed: the `/fable-5` hub + OG image, the
+  landing event strip, the leaderboard chip, the profile "fable-5 week" card,
+  and the CLI's launch-board / Stack Math output (0.9.17).
+- `/fable-5` and `/leaderboard/fable-5` 308-redirect to `/leaderboard` so
+  shared links keep landing somewhere alive.
+- Convex is untouched on purpose: `fable5*` fields, the window projector and
+  `listFable5Leaderboard` keep the event's data queryable, and the
+  window-board machinery is the template for the next launch-week board
+  (the franchise line stands: every major model launch gets one).
+- Fable 5 model pricing in the CLI stays — that's base metering, not the event.
+
 ## 2026-07-02 — Fable 5 Week is its own product entity
 
 - Two products live here and must not blur: **tokmax** (the evergreen meter +
