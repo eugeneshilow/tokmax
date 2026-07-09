@@ -253,10 +253,12 @@ export function suggestAlternativeNick(nick: string, taken: Set<string>): string
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-// Lowered 50k→15k: visible (non-suspicious) entries are bounded to a believable
-// heavy-user ceiling, so self-reported poison can't show absurd numbers on the
-// public board; above this → suspicious → hidden pending owner review.
-export const TMX_VALUE_CAP_USD = 15_000
+// Raised 15k→250k (owner call, 2026-07-09): the 15k ceiling hid the only real
+// profile on the board (the owner's own, ~$20k lifetime) — an empty board is
+// worse than a poisonable one while the board is young. Soft cap now equals
+// the hard cap, i.e. effectively OFF; re-lower once strangers start
+// publishing. History: 50k→15k (anti-poison), 15k→250k (this).
+export const TMX_VALUE_CAP_USD = 250_000
 
 export const TMX_VALUE_HARD_CAP_USD = 250_000
 
