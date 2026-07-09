@@ -2,6 +2,19 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-09 — value cap effectively off (15k → 250k)
+
+- The $15k plausibility cap auto-hid the owner's own profile (~$20k lifetime,
+  the only profile on the board) → every leaderboard rendered empty. Owner
+  call: while the board is young and empty, an invisible board hurts more
+  than a poisonable one — `TMX_VALUE_CAP_USD` raised to the hard cap
+  ($250k), i.e. the soft gate is effectively off.
+- Known trade-off, accepted consciously: self-reported entries up to $250k
+  will show publicly. Re-lower the cap (and/or build an owner unflag tool)
+  once strangers start publishing.
+- Same constant gates raw submissions and the cooked profile, so one change
+  covers both; profiles recompute on the next publish.
+
 ## 2026-07-09 — Fable 5 Week is retired; tokmax base stays
 
 - Owner decision: the event went stale after July 7 — remove it instead of
