@@ -31,6 +31,24 @@ export const OVERRIDES = [
     aliases: ['gpt-5-mini', 'gpt-5.5-mini', 'o4-mini'],
     perMillion: { input: 0.75, output: 4.5, cacheCreate: 0.75, cacheRead: 0.075, reasoning: 4.5 },
   },
+  // gpt-5.6 family: without these pins the prefix heuristic collapsed every
+  // 5.6 variant to the "gpt-5" alias (= gpt-5.5 rates, $5/$30) — luna was
+  // billed 5-6x too high. Rates per OpenAI list prices.
+  {
+    id: 'gpt-5.6-sol',
+    aliases: ['gpt-5.6', 'gpt-5.6-codex'],
+    perMillion: { input: 5, output: 30, cacheCreate: 5, cacheRead: 0.5, reasoning: 30 },
+  },
+  {
+    id: 'gpt-5.6-terra',
+    aliases: [],
+    perMillion: { input: 2.5, output: 15, cacheCreate: 2.5, cacheRead: 0.25, reasoning: 15 },
+  },
+  {
+    id: 'gpt-5.6-luna',
+    aliases: [],
+    perMillion: { input: 1, output: 6, cacheCreate: 1, cacheRead: 0.1, reasoning: 6 },
+  },
   // ---- Anthropic / Claude Code ----
   {
     id: 'claude-fable-5',
@@ -45,6 +63,13 @@ export const OVERRIDES = [
   {
     id: 'claude-sonnet-4-6',
     aliases: ['claude-sonnet-4-5', 'claude-3-5-sonnet', 'claude-3-7-sonnet', 'sonnet'],
+    perMillion: { input: 3, output: 15, cacheCreate: 3.75, cacheRead: 0.3, reasoning: 15 },
+  },
+  // Sonnet 5 was resolving to FALLBACK (no override, absent from the LiteLLM
+  // snapshot). Same $ by coincidence — pinned so it can't drift.
+  {
+    id: 'claude-sonnet-5',
+    aliases: ['sonnet-5'],
     perMillion: { input: 3, output: 15, cacheCreate: 3.75, cacheRead: 0.3, reasoning: 15 },
   },
   {
