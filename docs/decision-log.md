@@ -2,6 +2,26 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-16 — pricing pins: gpt-5.6 family + claude-sonnet-5 (0.9.18)
+
+- Bug: no override and no LiteLLM-snapshot entry for the gpt-5.6 family, so
+  the longest-prefix heuristic collapsed every 5.6 variant to the `gpt-5`
+  alias of gpt-5.5 ($5/$30). `gpt-5.6-luna` (real: $1/$6) was billed 5-6x
+  high — ~$243 of phantom spend on the owner's profile ($303.37 shown vs
+  $60.67 real). `gpt-5.6-sol` and `claude-sonnet-5` (fallback) matched the
+  right $ only by coincidence.
+- Fix (PR #34): explicit override pins for gpt-5.6-sol/terra/luna and
+  claude-sonnet-5; same ids added to the refresh-script KEYS so future
+  snapshots carry the family. Lesson: every model actually appearing in
+  local logs gets an explicit pin — the prefix heuristic and the flat
+  fallback are for never-seen-before ids only, not for daily drivers.
+- Verified against the canon price table (`vibecoding-ru/scripts/usage-report.mjs`)
+  and the live profile: machine merge is exact (Pro $22,554.02 + Air
+  $7,224.42 = site $29,778.44 to the cent before the fix), and the cost
+  formula reproduces every scoreboard row. Both machines reinstalled at
+  0.9.18 (tarball into the global install the launchd daily job runs) and
+  republished; npm registry publish of 0.9.18 is pending (owner action).
+
 ## 2026-07-09 — value cap effectively off (15k → 250k)
 
 - The $15k plausibility cap auto-hid the owner's own profile (~$20k lifetime,
