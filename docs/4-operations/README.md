@@ -6,7 +6,8 @@ Deployment:
 
 - Web app: Next.js.
 - Backend: Convex.
-- CLI: npm package.
+- CLI: npm package — выкатка версии, npm-ключи, обновление дневных джобов:
+  [release.md](release.md).
 
 Security-sensitive areas:
 
