@@ -2,6 +2,26 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-19 — shadow machines: hostname drift double-counted whole histories (0.9.19)
+
+- Bug: the machine label is a hostname hash, and macOS silently bumps the
+  hostname on network name collisions (`MacBook-Pro-4.local` →
+  `MacBook-Pro-5.local`). The same laptop then publishes under a NEW label,
+  and since every submission carries full history, the whole history
+  double-counts. Live damage: eugeneshilow $60,347 shown vs $36,964 real
+  ("3 machines" vs 2), lomaz $40,773 vs $24,129.
+- Fix (PR #40): two layers. CLI 0.9.19 pins the computed label into
+  `~/.config/tokenmax/prefs.json` on first run and reuses it forever
+  (prevention). The projector drops "shadow machines" at projection time:
+  an older label whose non-zero days match a newer label token-for-token
+  (>=80% of days, >=3 days) is the same machine pre-rename (cure — heals
+  every affected profile on next projection, any CLI version). Raw
+  submissions untouched: facts immutable, hygiene lives in the projector.
+- Why data-matching, not name-matching: two different machines never produce
+  identical per-day token totals (verified on prod: lomaz's real second
+  machine had 0 matching days and survives; both shadows matched 42/43 and
+  33/36 days exactly, diverging only on the partial rename-day scan).
+
 ## 2026-07-16 — pricing pins: gpt-5.6 family + claude-sonnet-5 (0.9.18)
 
 - Bug: no override and no LiteLLM-snapshot entry for the gpt-5.6 family, so
