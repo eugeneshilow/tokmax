@@ -97,6 +97,22 @@ export async function savePrefs(patch) {
   return next;
 }
 
+/**
+ * Per-machine label that survives hostname changes. macOS silently bumps the
+ * hostname on network name collisions (MacBook-Pro-4.local → MacBook-Pro-5.local),
+ * so a label recomputed from the hostname splits one machine into two "machines"
+ * whose full histories then double-count on the board. First run pins the
+ * computed label into prefs.json; every later run (including the daily job)
+ * reuses the pinned value no matter what the hostname says.
+ */
+export async function stableMachineLabel(compute) {
+  const prefs = await loadPrefs();
+  if (typeof prefs.machineLabel === 'string' && prefs.machineLabel) return prefs.machineLabel;
+  const label = compute();
+  await savePrefs({ machineLabel: label });
+  return label;
+}
+
 /** Delete auth.json. Returns true if a file was removed. */
 export async function deleteAuth() {
   try {
