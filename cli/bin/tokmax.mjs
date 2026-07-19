@@ -42,6 +42,7 @@ import {
   wipeLocal,
   loadPrefs,
   savePrefs,
+  stableMachineLabel,
 } from '../src/secrets.mjs';
 import { login, logout } from '../src/auth.mjs';
 import { startProgress } from '../src/progress.mjs';
@@ -83,7 +84,7 @@ function parseArgs(argv) {
     since: null,
     key: null,
     api: DEFAULT_API,
-    machine: anonymousMachineLabel(),
+    machine: null, // resolved later: --machine flag > pinned prefs label > fresh hostname hash
     sources: null, // null = both; { claude, codex }
     subscriptionUsd: null,
     dryRun: false,
@@ -342,7 +343,7 @@ async function runOnboarding(cliVersion, apiBase) {
       if (rl) rl.close();
       console.log('');
       try {
-        const { handle } = await login(apiBase);
+        const { handle } = await login(apiBase, await stableMachineLabel(anonymousMachineLabel));
         config.mode = 'x';
         config.bearer = (await loadAuth())?.token;
         config.handle = handle || null;
@@ -437,7 +438,7 @@ async function loginCmd(rawArgs, apiBase) {
   console.log('tokmax · Sign in with X');
   let handle, file;
   try {
-    ({ handle, file } = await login(apiBase));
+    ({ handle, file } = await login(apiBase, await stableMachineLabel(anonymousMachineLabel)));
   } catch (err) {
     console.error(`Sign-in failed: ${err && err.message ? err.message : err}`);
     return 1;
@@ -584,6 +585,10 @@ async function dailyCmd(rawArgs) {
 async function runPipeline(opts, cliVersion, { interactive }) {
   const nick = (opts.nick || '').trim();
   const nickKey = nick.toLowerCase();
+
+  // Pin the machine label BEFORE building the payload so hostname drift can't
+  // split this machine into a new "machine" on the board (see stableMachineLabel).
+  if (!opts.machine) opts.machine = await stableMachineLabel(anonymousMachineLabel);
 
   console.log(`tokmax v${cliVersion} · open source: ${REPO_DISPLAY}`);
   console.log(`nick: ${nick}${opts.bearer ? ' (via X)' : ''}`);

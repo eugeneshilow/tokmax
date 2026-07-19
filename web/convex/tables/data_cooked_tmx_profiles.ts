@@ -90,6 +90,49 @@ function round2(value: number): number {
 
 const TMX_PROJECTOR_WINDOW = 60
 
+// Shadow-machine detection thresholds (see findSupersededLabels).
+const TMX_SHADOW_MIN_MATCHED_DAYS = 3
+const TMX_SHADOW_MATCH_FRACTION = 0.8
+
+/**
+ * A machine that re-labels itself shows up as TWO machines whose full
+ * histories overlap, and the whole history double-counts. Real case: the CLI
+ * label is a hostname hash, and macOS silently bumps the hostname on network
+ * name collisions (MacBook-Pro-4.local → MacBook-Pro-5.local) — one laptop
+ * became machine-e29a81 + machine-c22d49 and its $23k history counted twice.
+ *
+ * Detect the shadow by data, not by name: two DIFFERENT machines never produce
+ * identical per-day token totals, so if ≥80% of an older machine's non-zero
+ * days (and at least 3) match a newer machine's days token-for-token, the
+ * older label is the same machine pre-rename. Only the older side of a pair is
+ * ever dropped, so the label that keeps publishing survives. Raw submissions
+ * stay untouched — this is projection-time hygiene, facts are immutable.
+ */
+function findSupersededLabels(latest: Doc<'data_raw_tmx_submissions'>[]): Set<string> {
+  const superseded = new Set<string>()
+  for (const a of latest) {
+    const aDays = a.daily.filter((d) => d.totalTokens > 0)
+    if (aDays.length === 0) continue
+    for (const b of latest) {
+      if (b === a) continue
+      const bNewer =
+        b.insertedAt > a.insertedAt ||
+        (b.insertedAt === a.insertedAt && b.machineLabel > a.machineLabel)
+      if (!bNewer) continue
+      const bByDate = new Map(b.daily.map((d) => [d.date, d.totalTokens]))
+      const matched = aDays.filter((d) => bByDate.get(d.date) === d.totalTokens).length
+      if (
+        matched >= TMX_SHADOW_MIN_MATCHED_DAYS &&
+        matched >= aDays.length * TMX_SHADOW_MATCH_FRACTION
+      ) {
+        superseded.add(a.machineLabel)
+        break
+      }
+    }
+  }
+  return superseded
+}
+
 /**
  */
 export async function projectTmxProfile(ctx: MutationCtx, nick: string): Promise<void> {
@@ -138,7 +181,10 @@ async function writeProfileFromRows(
     const cur = latestByMachine.get(row.machineLabel)
     if (!cur || row.insertedAt > cur.insertedAt) latestByMachine.set(row.machineLabel, row)
   }
-  const latest = Array.from(latestByMachine.values())
+  const allLatest = Array.from(latestByMachine.values())
+  const supersededLabels = findSupersededLabels(allLatest)
+  // The newest submission is never superseded, so `latest` is always non-empty.
+  const latest = allLatest.filter((m) => !supersededLabels.has(m.machineLabel))
 
   const sourceMap = new Map<string, TmxSource>()
   for (const machine of latest) {
