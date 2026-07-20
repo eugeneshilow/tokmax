@@ -136,24 +136,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
       : null
   const maxDailyCost = viewDaily.reduce((m, d) => Math.max(m, d.costUsd ?? 0), 0)
 
-  // PROFIT/× = ROLLING LAST 30 DAYS of recorded activity vs ONE month of the current
-  // plan (~30 days) — apples-to-apples and STABLE (calendar months tank the ratio in the
-  // first days of a month, killing the flex). Window is anchored to the latest data day,
-  // so it's "your most recent 30 days of coding". We only need the current plan price, no
-  // purchase date / historical-plan guessing.
-  const econ = (() => {
-    if (!profile.subscriptionUsd || profile.subscriptionUsd <= 0 || profile.daily.length === 0)
-      return null
-    const lastDate = profile.daily[profile.daily.length - 1].date
-    const windowStart = new Date(Date.parse(lastDate) - 29 * 86400000).toISOString().slice(0, 10)
-    const windowBurn = profile.daily
-      .filter((d) => d.date >= windowStart)
-      .reduce((s, d) => s + (d.costUsd ?? 0), 0)
-    const sub = profile.subscriptionUsd
-    const ratio = sub > 0 ? windowBurn / sub : 0
-    return { windowBurn, sub, ratio, profit: windowBurn - sub }
-  })()
-
   const board = await loadTmxLeaderboard(200)
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
@@ -161,9 +143,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   // One-click share: pre-filled post with the numbers. The paste/screenshot IS
   // the viral loop — the button must cost the visitor zero effort.
   const shareText = [
-    `I burned ${formatUsd(profile.costUsd)} in AI tokens at API prices` +
-      (econ && econ.profit >= 0 ? ` — ${econ.ratio.toFixed(1)}× my plan` : '') +
-      '.',
+    `I burned ${formatUsd(profile.costUsd)} in AI tokens at API prices.`,
     'See yours: npx tokmax',
     `https://${shareUrl}`,
   ].join('\n')
@@ -408,20 +388,6 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                       tokens <span className="text-[#6E6E73]">({formatCompactNumber(viewTokens)})</span>
                     </p>
                     <div className="mt-3 space-y-1">
-                      {econ && econ.profit >= 0 ? (
-                        <p className="font-bold text-[#18D86B]">
-                          ▲ +{formatUsd(econ.profit)} profit · {econ.ratio.toFixed(1)}×{' '}
-                          <span className="font-normal text-[#6BE39A]">
-                            vs your {formatUsd(econ.sub)}/mo plan
-                          </span>
-                        </p>
-                      ) : null}
-                      {econ && econ.profit < 0 ? (
-                        <p className="text-[#FF7A1A]">
-                          🔥 {formatUsd(econ.windowBurn)} of {formatUsd(econ.sub)}/mo plan · room to
-                          burn
-                        </p>
-                      ) : null}
                       {effectivePeriod === 'all' && rank ? (
                         <p className="text-white">
                           🏆 <span className="font-bold">#{rank}</span> on the leaderboard
