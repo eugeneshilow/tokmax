@@ -2,6 +2,23 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-20 — PROFIT/× removed from every surface (0.9.20)
+
+- Owner verdict: "мы неверно это все считаем — и посчитать это все очень
+  сложно" — the profit/× economics ("▲ +$33,966 profit · 170.8× vs your
+  $200/mo plan") is dropped entirely, not fixed. The window-burn-vs-plan
+  math never accounted for plan history, purchase dates, or multiple
+  subscriptions, so the number was confidently wrong.
+- Removed: CLI onboarding subscription question, local plan auto-detect
+  (`plan.mjs` deleted), the "Last 30 days … (profit …)" terminal line,
+  profit/× in both share texts (CLI + web), the green profit card on the
+  profile page, and the profit badge on the OG image (falls back to
+  TOKENS/PERIOD stats).
+- Kept: backend schema and stored `subscriptionUsd` (facts immutable; old
+  CLIs in the wild still send the field — the server keeps accepting it,
+  it's just never displayed). `--sub` flag is parsed as a no-op for
+  backward compat.
+
 ## 2026-07-19 — shadow machines: hostname drift double-counted whole histories (0.9.19)
 
 - Bug: the machine label is a hostname hash, and macOS silently bumps the

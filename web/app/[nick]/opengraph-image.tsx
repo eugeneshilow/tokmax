@@ -106,21 +106,6 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
     )
   }
 
-  // Rolling last-30-days PROFIT/× (same as the page) — the green dopamine for the share
-  // preview. Only when a subscription is known and you're in the green.
-  const econ = (() => {
-    if (!profile.subscriptionUsd || profile.subscriptionUsd <= 0 || !profile.daily?.length)
-      return null
-    const lastDate = profile.daily[profile.daily.length - 1].date
-    const windowStart = new Date(Date.parse(lastDate) - 29 * 86400000).toISOString().slice(0, 10)
-    const windowBurn = profile.daily
-      .filter((d) => d.date >= windowStart)
-      .reduce((s, d) => s + (d.costUsd ?? 0), 0)
-    const sub = profile.subscriptionUsd
-    const ratio = sub > 0 ? windowBurn / sub : 0
-    return { sub, ratio, profit: windowBurn - sub }
-  })()
-
   return new ImageResponse(
     (
       <div
@@ -213,39 +198,10 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          {econ && econ.profit >= 0 ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 22,
-                border: '2px solid rgba(24,216,107,0.55)',
-                background: 'rgba(24,216,107,0.12)',
-                borderRadius: 16,
-                padding: '14px 26px',
-              }}
-            >
-              <div style={{ display: 'flex', fontSize: 52, fontWeight: 800, color: '#1BE673' }}>
-                +{formatUsd(econ.profit)}
-              </div>
-              <div style={{ display: 'flex', fontSize: 52, fontWeight: 800, color: '#1BE673' }}>
-                {econ.ratio.toFixed(1)}×
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', fontSize: 20, fontWeight: 800, color: '#9EFFBF' }}>
-                  PROFIT · LAST 30 DAYS
-                </div>
-                <div style={{ display: 'flex', fontSize: 20, fontWeight: 600, color: '#9EFFBF' }}>
-                  beat your {formatUsd(econ.sub)}/mo plan
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 14 }}>
-              <OgStat label="TOKENS" value={formatCompactNumber(profile.totalTokens)} />
-              <OgStat label="PERIOD" value={`${profile.firstDay} → ${profile.lastDay}`} />
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 14 }}>
+            <OgStat label="TOKENS" value={formatCompactNumber(profile.totalTokens)} />
+            <OgStat label="PERIOD" value={`${profile.firstDay} → ${profile.lastDay}`} />
+          </div>
           <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: '#18D86B' }}>
             tokmax.dev/{profile.nick}
           </div>

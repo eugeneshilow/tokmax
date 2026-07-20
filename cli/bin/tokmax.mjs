@@ -47,7 +47,6 @@ import {
 import { login, logout } from '../src/auth.mjs';
 import { startProgress } from '../src/progress.mjs';
 import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
-import { detectSubscription } from '../src/plan.mjs';
 
 const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.dev'; // short brand domain (redirects to the serving host)
@@ -86,7 +85,6 @@ function parseArgs(argv) {
     api: DEFAULT_API,
     machine: null, // resolved later: --machine flag > pinned prefs label > fresh hostname hash
     sources: null, // null = both; { claude, codex }
-    subscriptionUsd: null,
     dryRun: false,
     yes: false,
     onboard: false,
@@ -110,11 +108,10 @@ function parseArgs(argv) {
         opts.machine = argv[++i];
         break;
       case '--subscriptionUsd':
-      case '--sub': {
-        const v = Number((argv[++i] || '').replace(/[^0-9.]/g, ''));
-        if (Number.isFinite(v) && v > 0) opts.subscriptionUsd = v;
+      case '--sub':
+        // Removed feature (profit/× vs plan) — swallow the value for backward compat.
+        ++i;
         break;
-      }
       case '--dry-run':
         opts.dryRun = true;
         break;
@@ -214,7 +211,7 @@ function confirm(question, { defaultYes = false } = {}) {
   });
 }
 
-// One-line free prompt (returns the trimmed answer). Used for the subscription picker.
+// One-line free prompt (returns the trimmed answer).
 function promptLine(question) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -295,7 +292,7 @@ async function acknowledgeAccount(handle) {
  *
  * @returns {Promise<null | {
  *   mode:'quick'|'x', nick:string|null, since:string|null,
- *   sources:{claude:boolean,codex:boolean}, subscriptionUsd:number|null,
+ *   sources:{claude:boolean,codex:boolean},
  *   bearer?:string, handle?:string
  * }>}
  */
@@ -321,7 +318,6 @@ async function runOnboarding(cliVersion, apiBase) {
     nick: null,
     since: null,
     sources: { claude: true, codex: true },
-    subscriptionUsd: null,
     bearer: undefined,
     handle: undefined,
   };
@@ -395,7 +391,7 @@ async function runOnboarding(cliVersion, apiBase) {
     // ── How to count? ──
     console.log('\nHow should we count?');
     console.log('  [1] Default — whole history, Codex + Claude Code  (recommended)');
-    console.log('  [2] Customize — period, sources, subscription');
+    console.log('  [2] Customize — period, sources');
     const mode = (await ask('  choice [1/2, Enter=1]: ')).trim();
 
     if (mode === '2') {
@@ -415,9 +411,6 @@ async function runOnboarding(cliVersion, apiBase) {
         .toLowerCase();
       if (src === 'c') config.sources = { claude: true, codex: false };
       else if (src === 'x') config.sources = { claude: false, codex: true };
-      const sub = (await ask('  how much do you pay for subscriptions per month, $? (Enter = skip): ')).trim();
-      const n = Number(sub.replace(/[^0-9.]/g, ''));
-      if (Number.isFinite(n) && n > 0) config.subscriptionUsd = n;
     }
     console.log('');
   } finally {
@@ -715,33 +708,6 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
   console.log(ATTRIBUTION);
 
-  // and map it to retail $/mo; tokens are never read out or sent. `--sub <usd>` overrides.
-  if (!opts.subscriptionUsd) {
-    const det = await detectSubscription();
-    if (det) {
-      opts.subscriptionUsd = det.totalUsd;
-      console.log(`\n💸 Detected your plan locally: ${det.label} = $${det.totalUsd}/mo — we'll show how many × you beat it.`);
-      console.log('   (only the plan label + $ are sent, never your tokens · wrong? re-run with --sub <usd>)');
-    }
-  }
-
-  // PROFIT/× = ROLLING LAST 30 DAYS vs one month of the plan (matches the page). Stable
-  // (no calendar month-start dip), apples-to-apples; no purchase date / historical guessing.
-  // Kept in scope: the post-publish share text reuses it.
-  let econ = null;
-  if (opts.subscriptionUsd && daily.length) {
-    const lastDate = daily[daily.length - 1].date;
-    const windowStart = new Date(Date.parse(lastDate) - 29 * 86400000).toISOString().slice(0, 10);
-    const windowBurn = daily
-      .filter((d) => d.date >= windowStart)
-      .reduce((s, d) => s + (d.costUsd || 0), 0);
-    const ratio = opts.subscriptionUsd > 0 ? windowBurn / opts.subscriptionUsd : 0;
-    econ = { windowBurn, ratio, profit: windowBurn - opts.subscriptionUsd };
-    console.log(
-      `Last 30 days: $${fmtUsd(windowBurn)} of API value on your $${fmtUsd(opts.subscriptionUsd)}/mo plan → ${ratio.toFixed(1)}× (profit $${fmtUsd(windowBurn - opts.subscriptionUsd)})`,
-    );
-  }
-
   console.log('Only the aggregate numbers are sent — your logs and keys stay on this machine.');
 
   const body = {
@@ -757,7 +723,6 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     sources: costSources,
     totals,
     daily,
-    ...(opts.subscriptionUsd ? { subscriptionUsd: opts.subscriptionUsd } : {}),
   };
 
   if (opts.dryRun) {
@@ -825,11 +790,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     // Share moment: a paste-ready post with the numbers + a one-click X intent
     // link. The paste/screenshot IS the viral loop — make it zero-effort.
     const shareLines = [
-      `I burned $${fmtUsd(usd)} in AI tokens at API prices` +
-        (econ && econ.profit >= 0
-          ? ` — ${econ.ratio.toFixed(1)}× my $${fmtUsd(opts.subscriptionUsd)}/mo plan`
-          : '') +
-        '.',
+      `I burned $${fmtUsd(usd)} in AI tokens at API prices.`,
       'See yours: npx tokmax',
       pageUrl,
     ];
@@ -979,7 +940,6 @@ async function main() {
     opts.nick = cfg.nick;
     opts.since = cfg.since;
     opts.sources = cfg.sources;
-    opts.subscriptionUsd = cfg.subscriptionUsd;
     if (cfg.mode === 'x' && cfg.bearer) opts.bearer = cfg.bearer;
   }
 
