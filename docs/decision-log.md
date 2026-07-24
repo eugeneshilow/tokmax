@@ -2,6 +2,27 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-24 — sonnet-5 intro pricing: the pin itself drifted (0.9.21)
+
+- Trigger: outside criticism ("hardcoded prices" in the bundled
+  litellm-prices.json). The hardcode-as-design is fine — pinned snapshot +
+  refresh script + override pins is deliberate and offline. But the audit it
+  prompted found one real bug: the `claude-sonnet-5` pin ($3/$15) was stale
+  at birth. LiteLLM applied Anthropic's INTRODUCTORY Sonnet 5 pricing
+  ($2/$10, cacheCreate 2.5, cacheRead 0.2) on 2026-07-01 (commit 6e023f7cf2,
+  valid through 2026-08-31); our pin was added 2026-07-16 and verified
+  against our own hand-kept table instead of LiteLLM — the declared source
+  of truth. Sonnet 5 spend was overbilled 1.5x.
+- Fix: override pin → 2/10/2.5/0.2 with a revisit-after-2026-08-31 note;
+  snapshot refreshed to 2026-07-24 (23 → 28 models: gpt-5.6 family +
+  claude-sonnet-5 now carried by the bundle too, so the family no longer
+  depends on overrides alone). All other 10 override rows verified 1:1
+  against live upstream — no other drift.
+- Lesson (extends 0.9.18's "every daily driver gets a pin"): a pin is only
+  as good as its verification source. Pins are verified against LITELLM at
+  pin time, never against our own older table; time-limited prices get an
+  expiry note in the override comment so the revisit is discoverable.
+
 ## 2026-07-20 — PROFIT/× removed from every surface (0.9.20)
 
 - Owner verdict: "мы неверно это все считаем — и посчитать это все очень
