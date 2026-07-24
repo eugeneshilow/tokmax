@@ -65,12 +65,15 @@ export const OVERRIDES = [
     aliases: ['claude-sonnet-4-5', 'claude-3-5-sonnet', 'claude-3-7-sonnet', 'sonnet'],
     perMillion: { input: 3, output: 15, cacheCreate: 3.75, cacheRead: 0.3, reasoning: 15 },
   },
-  // Sonnet 5 was resolving to FALLBACK (no override, absent from the LiteLLM
-  // snapshot). Same $ by coincidence — pinned so it can't drift.
+  // Sonnet 5: INTRODUCTORY pricing through 2026-08-31 (LiteLLM 6e023f7cf2,
+  // applied upstream 2026-07-01). The old 3/15 pin was stale at birth — it was
+  // verified against our hand-kept table instead of LiteLLM and overbilled
+  // Sonnet 5 by 1.5x. Revisit after 2026-08-31: if upstream reverts to 3/15,
+  // this pin follows.
   {
     id: 'claude-sonnet-5',
     aliases: ['sonnet-5'],
-    perMillion: { input: 3, output: 15, cacheCreate: 3.75, cacheRead: 0.3, reasoning: 15 },
+    perMillion: { input: 2, output: 10, cacheCreate: 2.5, cacheRead: 0.2, reasoning: 10 },
   },
   {
     id: 'claude-haiku-4-5',
