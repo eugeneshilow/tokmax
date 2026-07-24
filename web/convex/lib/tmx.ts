@@ -45,6 +45,11 @@ export const tmxDailyFields = {
   claudeTokens: v.number(),
   totalTokens: v.number(),
   costUsd: v.optional(v.number()),
+  // Cooked profiles keep the per-agent daily split so period leaderboards can
+  // rank by Codex or Claude Code without allocating blended dollars by token
+  // share. Optional keeps existing raw submissions/profiles readable.
+  codexCostUsd: v.optional(v.number()),
+  claudeCostUsd: v.optional(v.number()),
 }
 
 export const tmxTotalsFields = {
@@ -324,7 +329,12 @@ export type TmxDailyInput = {
   claudeTokens: number
   costUsd?: number
 }
-export type TmxDaily = TmxDailyInput & { totalTokens: number; costUsd: number }
+export type TmxDaily = TmxDailyInput & {
+  totalTokens: number
+  costUsd: number
+  codexCostUsd?: number
+  claudeCostUsd?: number
+}
 
 export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
   return daily

@@ -1,6 +1,9 @@
 import { TerminalCard } from '@/components/terminal-card'
 import { formatCompactNumber, formatUsd, formatUsdPrecise } from '@/lib/format'
-import { loadTmxLeaderboardByPeriod } from '@/lib/tmx-profile-live'
+import {
+  loadTmxLeaderboardByPeriod,
+  type TmxLeaderboardAgent,
+} from '@/lib/tmx-profile-live'
 import { PromptCopyBox } from '../prompt-copy-box'
 import { ArrowUpRight, Flame, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -27,6 +30,13 @@ const MONTH_NAMES = [
 ]
 
 type PeriodOption = { value: string; label: string }
+type AgentOption = { value: TmxLeaderboardAgent; label: string }
+
+const AGENT_OPTIONS: AgentOption[] = [
+  { value: 'all', label: 'All' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'claude-code', label: 'Claude Code' },
+]
 
 /** YYYY-MM for a Date (UTC, so the period matches the daily[] date strings). */
 function monthKey(d: Date): string {
@@ -40,6 +50,16 @@ function periodLabel(period: string): string {
   const [y, m] = period.split('-')
   const idx = Number(m) - 1
   return `${MONTH_NAMES[idx] ?? m} ${y}`
+}
+
+function agentLabel(agent: TmxLeaderboardAgent): string {
+  return AGENT_OPTIONS.find((option) => option.value === agent)?.label ?? 'All'
+}
+
+function leaderboardHref(period: string, agent: TmxLeaderboardAgent): string {
+  const params = new URLSearchParams({ period })
+  if (agent !== 'all') params.set('agent', agent)
+  return `/leaderboard?${params.toString()}`
 }
 
 /**
@@ -80,31 +100,50 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function TmxLeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string | string[] }>
+  searchParams: Promise<{
+    period?: string | string[]
+    agent?: string | string[]
+  }>
 }) {
   const now = new Date()
   const { current, months, years } = buildPeriodOptions(now)
+  const params = await searchParams
 
   // Allowed periods = the selectable set + all-time. Anything else (or none)
   // falls back to the CURRENT calendar month (the default view).
   const allowed = new Set<string>(['all', ...months.map((m) => m.value), ...years.map((y) => y.value)])
-  const raw = (await searchParams)?.period
-  const requested = Array.isArray(raw) ? raw[0] : raw
+  const rawPeriod = params?.period
+  const requested = Array.isArray(rawPeriod) ? rawPeriod[0] : rawPeriod
   const period = requested && allowed.has(requested) ? requested : current
 
-  const rows = await loadTmxLeaderboardByPeriod(period, 100)
+  const rawAgent = params?.agent
+  const requestedAgent = Array.isArray(rawAgent) ? rawAgent[0] : rawAgent
+  const agent: TmxLeaderboardAgent = AGENT_OPTIONS.some(
+    (option) => option.value === requestedAgent
+  )
+    ? (requestedAgent as TmxLeaderboardAgent)
+    : 'all'
+
+  const rows = await loadTmxLeaderboardByPeriod(period, 100, agent)
   const label = periodLabel(period)
+  const selectedAgentLabel = agentLabel(agent)
 
   const t = {
     eyebrow: 'leaderboard',
     title: `Who burned the most — ${label}.`,
-    sub: 'Ranked by API-equivalent $ — what your Codex + Claude Code usage would cost at API prices. Pick a month, a year, or all-time.',
+    sub:
+      agent === 'all'
+        ? 'Ranked by API-equivalent $ — what your Codex + Claude Code usage would cost at API prices. Pick a month, a year, all-time, or one AI agent.'
+        : `Ranked by ${selectedAgentLabel} API-equivalent $ at API prices. Pick a month, a year, all-time, or another AI agent.`,
     rank: '#',
     nick: 'nick',
     api: 'API-equivalent',
     tokens: 'tokens',
     machines: 'machines',
-    empty: `No one on the board for ${label} yet — be the first.`,
+    empty:
+      agent === 'all'
+        ? `No one on the board for ${label} yet — be the first.`
+        : `No ${selectedAgentLabel} usage on the board for ${label} yet — be the first.`,
     buildEyebrow: 'build your own',
     buildTitle: 'Your counter — one command.',
     buildPara:
@@ -114,8 +153,8 @@ export default async function TmxLeaderboardPage({
 
   function pillClass(active: boolean): string {
     return active
-      ? 'inline-flex h-8 items-center rounded-full bg-[#FF7A1A] px-3 font-mono text-[12px] font-bold text-black'
-      : 'inline-flex h-8 items-center rounded-full border border-white/20 px-3 font-mono text-[12px] font-bold text-[#D2D2D7] hover:border-white/50 hover:text-white'
+      ? 'inline-flex h-8 items-center rounded-full bg-[#FF7A1A] px-3 font-mono text-[12px] font-bold text-black outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#070707]'
+      : 'inline-flex h-8 items-center rounded-full border border-white/20 px-3 font-mono text-[12px] font-bold text-[#D2D2D7] outline-none transition-colors hover:border-white/50 hover:text-white focus-visible:border-white/50 focus-visible:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#070707]'
   }
 
   return (
@@ -130,31 +169,81 @@ export default async function TmxLeaderboardPage({
           </h1>
           <p className="mt-6 max-w-3xl text-[16px] leading-7 text-[#D2D2D7] md:text-[19px]">{t.sub}</p>
 
-          {/* Period selector — months, years, all-time. Links keep this a
-              server component (force-dynamic): each pill is ?period=…. */}
+          {/* Period + agent filters stay as links so the page remains a
+              force-dynamic server component with shareable URL state. */}
           <div className="mt-7 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#6E6E73]">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-labelledby="leaderboard-month-label"
+            >
+              <span
+                id="leaderboard-month-label"
+                className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#9A9AA0]"
+              >
                 month
               </span>
               {months.map((m) => (
-                <Link key={m.value} href={`/leaderboard?period=${m.value}`} className={pillClass(period === m.value)}>
+                <Link
+                  key={m.value}
+                  href={leaderboardHref(m.value, agent)}
+                  className={pillClass(period === m.value)}
+                  aria-current={period === m.value ? 'true' : undefined}
+                >
                   {m.label}
                 </Link>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#6E6E73]">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-labelledby="leaderboard-year-label"
+            >
+              <span
+                id="leaderboard-year-label"
+                className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#9A9AA0]"
+              >
                 year
               </span>
               {years.map((y) => (
-                <Link key={y.value} href={`/leaderboard?period=${y.value}`} className={pillClass(period === y.value)}>
+                <Link
+                  key={y.value}
+                  href={leaderboardHref(y.value, agent)}
+                  className={pillClass(period === y.value)}
+                  aria-current={period === y.value ? 'true' : undefined}
+                >
                   {y.label}
                 </Link>
               ))}
-              <Link href="/leaderboard?period=all" className={pillClass(period === 'all')}>
+              <Link
+                href={leaderboardHref('all', agent)}
+                className={pillClass(period === 'all')}
+                aria-current={period === 'all' ? 'true' : undefined}
+              >
                 All-time
               </Link>
+            </div>
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-labelledby="leaderboard-agent-label"
+            >
+              <span
+                id="leaderboard-agent-label"
+                className="mr-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-[#9A9AA0]"
+              >
+                AI agent
+              </span>
+              {AGENT_OPTIONS.map((option) => (
+                <Link
+                  key={option.value}
+                  href={leaderboardHref(period, option.value)}
+                  className={pillClass(agent === option.value)}
+                  aria-current={agent === option.value ? 'true' : undefined}
+                >
+                  {option.label}
+                </Link>
+              ))}
             </div>
           </div>
 
@@ -171,7 +260,11 @@ export default async function TmxLeaderboardPage({
           {rows.length === 0 ? (
             <p className="py-16 text-center text-[16px] font-semibold text-[#6E6E73]">{t.empty}</p>
           ) : (
-            <TerminalCard title={`tokmax — leaderboard — ${label.toLowerCase()}`} live tone="paper">
+            <TerminalCard
+              title={`tokmax — ${agent === 'all' ? '' : `${selectedAgentLabel.toLowerCase()} — `}leaderboard — ${label.toLowerCase()}`}
+              live
+              tone="paper"
+            >
               <div className="overflow-x-auto">
               <table className="w-full min-w-[680px] border-collapse text-left">
                 <thead className="bg-[#F5F5F7] text-[11px] font-black uppercase tracking-[0.08em] text-[#6E6E73]">

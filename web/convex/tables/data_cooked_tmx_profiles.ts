@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import { internal } from '../_generated/api'
 import type { Doc } from '../_generated/dataModel'
 import { internalMutation, query, type MutationCtx } from '../_generated/server'
 import {
@@ -86,6 +87,34 @@ function emptyTotals(): TmxTotals {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+type TmxLeaderboardAgent = 'all' | 'codex' | 'claude-code'
+type TmxSourceAgent = Exclude<TmxLeaderboardAgent, 'all'>
+
+function sourceAgent(source: string): TmxSourceAgent | null {
+  const slug = source
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  if (slug === 'codex') return 'codex'
+  if (slug === 'claude-code') return 'claude-code'
+  return null
+}
+
+function sourceTotalsForAgent(
+  sources: TmxSource[],
+  agent: TmxSourceAgent
+): { costUsd: number; totalTokens: number } {
+  let costUsd = 0
+  let totalTokens = 0
+  for (const source of sources) {
+    if (sourceAgent(source.source) !== agent) continue
+    costUsd += source.costUsd
+    totalTokens += source.totalTokens
+  }
+  return { costUsd: round2(costUsd), totalTokens }
 }
 
 const TMX_PROJECTOR_WINDOW = 60
@@ -293,8 +322,48 @@ async function writeProfileFromRows(
   }, emptyTotals())
   totals.costUsd = round2(totals.costUsd)
 
-  const dailyMap = new Map<string, TmxDaily>()
+  const dailyMap = new Map<
+    string,
+    TmxDaily & { codexCostUsd: number; claudeCostUsd: number }
+  >()
   for (const machine of latest) {
+    const codexSource = sourceTotalsForAgent(machine.sources, 'codex')
+    const claudeSource = sourceTotalsForAgent(machine.sources, 'claude-code')
+    const codexRate =
+      codexSource.totalTokens > 0 ? codexSource.costUsd / codexSource.totalTokens : 0
+    const claudeRate =
+      claudeSource.totalTokens > 0 ? claudeSource.costUsd / claudeSource.totalTokens : 0
+
+    const dailyAgentSpend = new Map<
+      string,
+      {
+        codexCostUsd: number
+        claudeCostUsd: number
+        hasCodex: boolean
+        hasClaude: boolean
+      }
+    >()
+    for (const day of machine.dailyModelSpend ?? []) {
+      const spend =
+        dailyAgentSpend.get(day.date) ?? {
+          codexCostUsd: 0,
+          claudeCostUsd: 0,
+          hasCodex: false,
+          hasClaude: false,
+        }
+      for (const model of day.models) {
+        const agent = sourceAgent(model.tool)
+        if (agent === 'codex') {
+          spend.codexCostUsd += model.costUsd
+          spend.hasCodex = true
+        } else if (agent === 'claude-code') {
+          spend.claudeCostUsd += model.costUsd
+          spend.hasClaude = true
+        }
+      }
+      dailyAgentSpend.set(day.date, spend)
+    }
+
     for (const d of machine.daily) {
       const cur =
         dailyMap.get(d.date) ??
@@ -304,16 +373,35 @@ async function writeProfileFromRows(
           claudeTokens: 0,
           totalTokens: 0,
           costUsd: 0,
-        } satisfies TmxDaily)
+          codexCostUsd: 0,
+          claudeCostUsd: 0,
+        } satisfies TmxDaily & { codexCostUsd: number; claudeCostUsd: number })
+      const exact = dailyAgentSpend.get(d.date)
       cur.codexTokens += d.codexTokens
       cur.claudeTokens += d.claudeTokens
       cur.totalTokens += d.totalTokens
       cur.costUsd += d.costUsd ?? 0
+      // New submissions carry exact daily model spend. Legacy rows fall back
+      // to that machine's own source-specific blended rate, never the combined
+      // Codex + Claude token share.
+      cur.codexCostUsd +=
+        exact && (exact.hasCodex || d.codexTokens === 0)
+          ? exact.codexCostUsd
+          : d.codexTokens * codexRate
+      cur.claudeCostUsd +=
+        exact && (exact.hasClaude || d.claudeTokens === 0)
+          ? exact.claudeCostUsd
+          : d.claudeTokens * claudeRate
       dailyMap.set(d.date, cur)
     }
   }
   const daily = Array.from(dailyMap.values())
-    .map((d) => ({ ...d, costUsd: round2(d.costUsd) }))
+    .map((d) => ({
+      ...d,
+      costUsd: round2(d.costUsd),
+      codexCostUsd: round2(d.codexCostUsd),
+      claudeCostUsd: round2(d.claudeCostUsd),
+    }))
     .sort((a, b) => a.date.localeCompare(b.date))
 
   const machineLabels = latest.map((m) => m.machineLabel).sort((a, b) => a.localeCompare(b))
@@ -412,6 +500,68 @@ export const recomputeProfile = internalMutation({
       await projectTmxProfile(ctx, args.nick)
     }
     return null
+  },
+})
+
+/**
+ * One-shot rolling backfill for profiles projected before per-agent daily
+ * costs existed. Invoke once after deploying the schema/backend; each small
+ * batch schedules the next so no mutation approaches Convex transaction caps.
+ * Profiles backed by legacy raw payloads still get the source-rate fallback
+ * in writeProfileFromRows.
+ */
+export const backfillDailyAgentCosts = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+    batchSize: v.optional(v.number()),
+  },
+  returns: v.object({
+    processed: v.number(),
+    skipped: v.number(),
+    isDone: v.boolean(),
+    nextCursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const batchSize = Math.min(Math.max(Math.floor(args.batchSize ?? 5), 1), 10)
+    const page = await ctx.db
+      .query('data_cooked_tmx_profiles')
+      .order('asc')
+      .paginate({ cursor: args.cursor ?? null, numItems: batchSize })
+
+    let processed = 0
+    let skipped = 0
+    for (const profile of page.page) {
+      const needsBackfill = profile.daily.some(
+        (day) => day.codexCostUsd === undefined || day.claudeCostUsd === undefined
+      )
+      if (!needsBackfill) {
+        skipped++
+        continue
+      }
+
+      if (profile.account_x_user_id) {
+        await projectTmxProfileForAccount(ctx, profile.account_x_user_id, profile.nick)
+      } else {
+        await projectTmxProfile(ctx, profile.nick)
+      }
+      processed++
+    }
+
+    const nextCursor = page.isDone ? null : page.continueCursor
+    if (nextCursor) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.tables.data_cooked_tmx_profiles.backfillDailyAgentCosts,
+        { cursor: nextCursor, batchSize }
+      )
+    }
+
+    return {
+      processed,
+      skipped,
+      isDone: page.isDone,
+      nextCursor,
+    }
   },
 })
 
@@ -549,13 +699,24 @@ function dateInPeriod(date: string, period: string): boolean {
   return date.slice(0, 7) === period
 }
 
+const vTmxLeaderboardAgent = v.union(
+  v.literal('all'),
+  v.literal('codex'),
+  v.literal('claude-code')
+)
+
 /**
  */
 export const listLeaderboardByPeriod = query({
-  args: { period: v.string(), limit: v.optional(v.number()) },
+  args: {
+    period: v.string(),
+    agent: v.optional(vTmxLeaderboardAgent),
+    limit: v.optional(v.number()),
+  },
   returns: v.array(vTmxPeriodLeaderboardRow),
   handler: async (ctx, args) => {
     const period = normalizePeriod(args.period)
+    const agent: TmxLeaderboardAgent = args.agent ?? 'all'
     const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
 
     const rows = await ctx.db
@@ -567,25 +728,45 @@ export const listLeaderboardByPeriod = query({
     const ranked = rows
       .map((row) => {
         if (period === 'all') {
+          const selected =
+            agent === 'all'
+              ? { costUsd: row.costUsd, totalTokens: row.totalTokens }
+              : sourceTotalsForAgent(row.sources, agent)
+          const periodCostUsd = round2(selected.costUsd)
           return {
             nick: row.nick,
-            costUsd: row.costUsd,
-            totalTokens: row.totalTokens,
+            costUsd: periodCostUsd,
+            totalTokens: selected.totalTokens,
             lastDay: row.lastDay,
             machineLabels: row.machineLabels,
             updatedAt: row.updatedAt,
-            periodCostUsd: row.costUsd,
+            periodCostUsd,
             avatar_url: row.avatar_url,
             verified: row.verified,
           }
         }
-        const blendedRate = row.totalTokens > 0 ? row.costUsd / row.totalTokens : 0
+
+        const selectedSource =
+          agent === 'all' ? null : sourceTotalsForAgent(row.sources, agent)
+        const selectedRate =
+          selectedSource && selectedSource.totalTokens > 0
+            ? selectedSource.costUsd / selectedSource.totalTokens
+            : 0
         let costUsd = 0
         let totalTokens = 0
         for (const d of row.daily) {
           if (!dateInPeriod(d.date, period)) continue
-          costUsd += d.costUsd ?? d.totalTokens * blendedRate
-          totalTokens += d.totalTokens
+          if (agent === 'all') {
+            const blendedRate = row.totalTokens > 0 ? row.costUsd / row.totalTokens : 0
+            costUsd += d.costUsd ?? d.totalTokens * blendedRate
+            totalTokens += d.totalTokens
+          } else if (agent === 'codex') {
+            costUsd += d.codexCostUsd ?? d.codexTokens * selectedRate
+            totalTokens += d.codexTokens
+          } else {
+            costUsd += d.claudeCostUsd ?? d.claudeTokens * selectedRate
+            totalTokens += d.claudeTokens
+          }
         }
         const periodCostUsd = round2(costUsd)
         return {
@@ -600,8 +781,16 @@ export const listLeaderboardByPeriod = query({
           verified: row.verified,
         }
       })
-      .filter((row) => period === 'all' || row.costUsd > 0)
-      .sort((a, b) => b.costUsd - a.costUsd)
+      .filter((row) => {
+        if (period === 'all' && agent === 'all') return true
+        return agent === 'all' ? row.costUsd > 0 : row.totalTokens > 0
+      })
+      .sort(
+        (a, b) =>
+          b.costUsd - a.costUsd ||
+          b.totalTokens - a.totalTokens ||
+          a.nick.localeCompare(b.nick)
+      )
 
     return ranked.slice(0, limit)
   },

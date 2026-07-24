@@ -30,6 +30,8 @@ export type TmxProfileDaily = {
   claudeTokens: number
   totalTokens: number
   costUsd?: number
+  codexCostUsd?: number
+  claudeCostUsd?: number
 }
 
 export type TmxProfileTotals = {
@@ -80,6 +82,8 @@ export type TmxPeriodLeaderboardRow = TmxLeaderboardRow & {
   periodCostUsd: number
 }
 
+export type TmxLeaderboardAgent = 'all' | 'codex' | 'claude-code'
+
 const getTmxProfileByNick = makeFunctionReference<'query', { nick: string }, TmxProfile | null>(
   'tables/data_cooked_tmx_profiles:getByNick'
 )
@@ -90,7 +94,7 @@ const listTmxLeaderboard = makeFunctionReference<'query', { limit?: number }, Tm
 
 const listTmxLeaderboardByPeriod = makeFunctionReference<
   'query',
-  { period: string; limit?: number },
+  { period: string; agent?: TmxLeaderboardAgent; limit?: number },
   TmxPeriodLeaderboardRow[]
 >('tables/data_cooked_tmx_profiles:listLeaderboardByPeriod')
 
@@ -126,17 +130,25 @@ export async function loadTmxLeaderboard(limit?: number): Promise<TmxLeaderboard
  */
 export async function loadTmxLeaderboardByPeriod(
   period: string,
-  limit?: number
+  limit?: number,
+  agent: TmxLeaderboardAgent = 'all'
 ): Promise<TmxPeriodLeaderboardRow[]> {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
   if (!convexUrl) return []
 
   try {
     const convex = new ConvexHttpClient(convexUrl)
-    return await convex.query(
-      listTmxLeaderboardByPeriod,
-      limit === undefined ? { period } : { period, limit }
-    )
+    // Keep the default request compatible while Convex and the web app roll
+    // out independently: the pre-filter backend already accepts period/limit.
+    const args =
+      agent === 'all'
+        ? limit === undefined
+          ? { period }
+          : { period, limit }
+        : limit === undefined
+          ? { period, agent }
+          : { period, agent, limit }
+    return await convex.query(listTmxLeaderboardByPeriod, args)
   } catch (error) {
     console.warn('tmx period leaderboard unavailable', error)
     return []
