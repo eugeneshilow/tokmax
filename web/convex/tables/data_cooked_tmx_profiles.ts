@@ -18,6 +18,7 @@ import {
   type TmxSource,
   type TmxTotals,
 } from '../lib/tmx'
+import { isTmxShadowMachineMatch } from '../lib/tmx_machine_identity.mjs'
 
 const vTmxProfilePublic = v.object({
   nick: v.string(),
@@ -119,10 +120,6 @@ function sourceTotalsForAgent(
 
 const TMX_PROJECTOR_WINDOW = 60
 
-// Shadow-machine detection thresholds (see findSupersededLabels).
-const TMX_SHADOW_MIN_MATCHED_DAYS = 3
-const TMX_SHADOW_MATCH_FRACTION = 0.8
-
 /**
  * A machine that re-labels itself shows up as TWO machines whose full
  * histories overlap, and the whole history double-counts. Real case: the CLI
@@ -150,10 +147,7 @@ function findSupersededLabels(latest: Doc<'data_raw_tmx_submissions'>[]): Set<st
       if (!bNewer) continue
       const bByDate = new Map(b.daily.map((d) => [d.date, d.totalTokens]))
       const matched = aDays.filter((d) => bByDate.get(d.date) === d.totalTokens).length
-      if (
-        matched >= TMX_SHADOW_MIN_MATCHED_DAYS &&
-        matched >= aDays.length * TMX_SHADOW_MATCH_FRACTION
-      ) {
+      if (isTmxShadowMachineMatch(matched, aDays.length)) {
         superseded.add(a.machineLabel)
         break
       }

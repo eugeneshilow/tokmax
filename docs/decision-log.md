@@ -2,6 +2,28 @@
 
 Append short product and engineering decisions here. Newest section on top.
 
+## 2026-07-25 — authenticated machine identity is server-authoritative
+
+- Trigger: `npx tokmax update` pushed the owner's profile from the real
+  two-machine total to $67,595.46 and rewrote earlier days upward. Production
+  showed three labels: Air plus two hostname hashes for the same Pro. The
+  projection-time shadow heuristic missed the duplicate by one day: 34/43
+  exact daily matches = 79.07%, just below its 80% threshold.
+- Root cause: every publish is a full historical snapshot. Treating a
+  client-computed hostname hash as machine identity means one hostname change
+  turns the same history into an additional machine. Pinning the label in CLI
+  0.9.19 prevents future drift, but cannot make an already issued login forget
+  its original server-side identity; data-matching remains a heuristic.
+- Fix: authenticated publishes now use the machine label stored on their
+  bearer-token row at login. The token is already one-per-machine and stable,
+  so its canonical anonymized server-side label is authoritative; pre-privacy
+  token rows that contain a raw hostname are hashed into the same public
+  `machine-<hash>` shape before use. The submitted label remains the fallback
+  for anonymous publishes. For historical and anonymous labels, the
+  80% shadow threshold now floors the required count to a whole observation
+  (`floor(43 × 0.8) = 34`), so a fractional day cannot defeat an otherwise
+  strong match.
+
 ## 2026-07-24 — sonnet-5 intro pricing: the pin itself drifted (0.9.21)
 
 - Trigger: outside criticism ("hardcoded prices" in the bundled
