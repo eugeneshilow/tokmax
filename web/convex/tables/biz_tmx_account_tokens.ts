@@ -37,7 +37,14 @@ export const insertToken = internalMutation({
 /** publish: resolve the account by SHA-256(token) + touch last_used_at. */
 export const resolveByTokenHash = internalMutation({
   args: { token_hash: v.string() },
-  returns: v.union(v.object({ x_user_id: v.string(), handle: v.string() }), v.null()),
+  returns: v.union(
+    v.object({
+      x_user_id: v.string(),
+      handle: v.string(),
+      machine_label: v.union(v.string(), v.null()),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     const token = await ctx.db
       .query('biz_tmx_account_tokens')
@@ -50,7 +57,11 @@ export const resolveByTokenHash = internalMutation({
       .unique()
     if (!account) return null
     await ctx.db.patch(token._id, { last_used_at: Date.now() })
-    return { x_user_id: account.x_user_id, handle: account.handle }
+    return {
+      x_user_id: account.x_user_id,
+      handle: account.handle,
+      machine_label: token.machine_label,
+    }
   },
 })
 

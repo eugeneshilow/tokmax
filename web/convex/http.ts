@@ -1,6 +1,7 @@
 import { httpRouter, makeFunctionReference } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { TMX_VALUE_HARD_CAP_USD } from './lib/tmx'
+import { resolveTmxMachineLabel } from './lib/tmx_machine_identity.mjs'
 import { randomToken } from './lib/x_auth'
 
 // ===========================================================================
@@ -92,7 +93,7 @@ const tmxPublish = makeFunctionReference<'mutation', TmxPublishArgs, TmxPublishR
 const tmxResolveToken = makeFunctionReference<
   'mutation',
   { token_hash: string },
-  { x_user_id: string; handle: string } | null
+  { x_user_id: string; handle: string; machine_label: string | null } | null
 >('tables/biz_tmx_account_tokens:resolveByTokenHash')
 
 const tmxInsertToken = makeFunctionReference<
@@ -319,6 +320,7 @@ http.route({
       : null
     let accountXUserId: string | null = null
     let accountNick: string | null = null
+    let accountMachineLabel: string | null = null
     if (bearer) {
       const tokenHash = await tmxSha256Hex(bearer)
       const account = await ctx.runMutation(tmxResolveToken, { token_hash: tokenHash })
@@ -327,6 +329,7 @@ http.route({
       }
       accountXUserId = account.x_user_id
       accountNick = account.handle
+      accountMachineLabel = account.machine_label
     }
 
     const providedSecret =
@@ -342,10 +345,14 @@ http.route({
         typeof body.pricingVersion === 'string' ? body.pricingVersion.slice(0, 40) : 'unknown',
       firstDay: typeof body.firstDay === 'string' ? body.firstDay.slice(0, 10) : '',
       lastDay: typeof body.lastDay === 'string' ? body.lastDay.slice(0, 10) : '',
-      machineLabel:
-        typeof body.machineLabel === 'string' && body.machineLabel.trim().length > 0
-          ? body.machineLabel.slice(0, 60)
-          : 'this machine',
+      // Authenticated installs already have one durable server-side token row
+      // per machine. Trust that identity over the client hostname hash: macOS
+      // may rename a host and make a full historical snapshot look like a new
+      // computer, which retroactively double-counts the entire profile.
+      machineLabel: await resolveTmxMachineLabel(accountMachineLabel, body.machineLabel, {
+        authenticated: accountXUserId !== null,
+        hashLabel: tmxSha256Hex,
+      }),
       models: tmxCoerceModels(body.models),
       modelSpend: tmxCoerceModelSpend(body.modelSpend),
       dailyModelSpend: tmxCoerceDailyModelSpend(body.dailyModelSpend),
