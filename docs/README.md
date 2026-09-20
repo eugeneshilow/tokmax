@@ -1,6 +1,8 @@
 # tokmax Docs
 
-This directory holds product, launch, and operations notes for tokmax.
+Retired on 2026-09-20. Product and launch documents are historical; do not
+resume releases, promotion, or deployment without a new owner decision.
+The retirement policy lives in [operations](4-operations/README.md).
 
 Structure:
 

@@ -1,5 +1,10 @@
 # tokmax
 
+> **Retired 2026-09-20.** All npm versions are deprecated. The public service
+> is discontinued. Run `tokmax daily off` on each machine to stop scheduled
+> uploads. The documentation below describes the historical product.
+
+
 **How much would your AI coding cost at API prices?** You're on a Codex / Claude
 Code subscription — `tokmax` reads your local usage logs, works out what the same
 tokens would have cost at pay-as-you-go **API prices**, and turns it into a

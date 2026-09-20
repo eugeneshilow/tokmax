@@ -1,5 +1,9 @@
 # Release: как выкатить новую версию CLI
 
+> Archived procedure, 2026-09-20: tokmax is retired. Do not publish releases or
+> reinstall daily jobs. See [retirement policy](README.md).
+
+
 Обновлено: 2026-07-16. Раньбук появился после захода 2026-07-16, когда агент
 не нашёл в доках ни слова про npm-ключи и оставил `npm publish` «владельцу».
 
